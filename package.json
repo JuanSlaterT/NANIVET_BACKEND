@@ -1,0 +1,36 @@
+{
+  "name": "nanivet-backend",
+  "version": "1.0.0",
+  "description": "Backend API para NANIVET - Sistema de gestión veterinaria",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node scripts/run-migrations.js",
+    "seed": "node scripts/run-seed.js",
+    "migrate:down": "node scripts/run-migrations.js down",
+    "db:setup": "npm run migrate && npm run seed"
+  },
+  "keywords": [
+    "veterinaria",
+    "api",
+    "postgres",
+    "express"
+  ],
+  "author": "NANIVET",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.7.2",
+    "pg": "^8.13.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
