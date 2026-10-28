@@ -44,6 +44,7 @@ async function crear(req, res) {
   try {
     const { mascotaId, casoId, tipo, titulo, descripcion, fecha, archivo_url, veterinarioId } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
 
     const result = await pool.query(
       `INSERT INTO examenes_adjuntos (id, mascota_id, caso_id, tipo, titulo, descripcion, fecha, archivo_url, veterinario_id, fecha_creacion)

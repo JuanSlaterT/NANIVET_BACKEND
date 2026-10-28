@@ -25,6 +25,7 @@ async function crearEvolucion(req, res) {
   try {
     const { fecha, signos_vitales, estado_general, observaciones, veterinarioId } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

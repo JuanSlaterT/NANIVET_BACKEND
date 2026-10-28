@@ -136,6 +136,7 @@ async function crear(req, res) {
     const { mascotaId, veterinarioId, tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
     const token = genToken();
     const id = genUuid();
+    req.entityId = id; // Para auditoría
 
     // Verificar disponibilidad
     const fecha = fecha_hora.split('T')[0];

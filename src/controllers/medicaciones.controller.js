@@ -198,6 +198,7 @@ async function crearMedicacion(req, res) {
   try {
     const { medicamento, dosis, via, frecuencia, horas_programadas, fecha_inicio, fecha_fin } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const db = pool;
 
     const result = await db.query(

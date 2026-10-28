@@ -73,6 +73,7 @@ async function crear(req, res) {
     }
 
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const result = await pool.query(
       `INSERT INTO mascotas (id, cliente_id, nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, 
        esterilizado, microchip, alergias, notas, fecha_creacion, fecha_actualizacion)

@@ -54,6 +54,7 @@ async function crear(req, res) {
   try {
     const { nombre, intervaloMeses, via, activa } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
 
     // Validaciones
     if (!nombre || !intervaloMeses) {

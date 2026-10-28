@@ -82,6 +82,7 @@ async function crearBloqueo(req, res) {
   try {
     const { fecha, motivo } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const result = await pool.query(
       `INSERT INTO horarios_bloqueados (id, veterinario_id, fecha, motivo) 
        VALUES ($1, $2, $3, $4) 

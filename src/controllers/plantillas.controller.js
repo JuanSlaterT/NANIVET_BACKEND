@@ -55,6 +55,7 @@ async function crear(req, res) {
   try {
     const { nombre, tipo, contenido, categoria } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
 
     const result = await pool.query(
       `INSERT INTO plantillas (id, nombre, tipo, contenido, categoria, creado_por, fecha_creacion, fecha_actualizacion)

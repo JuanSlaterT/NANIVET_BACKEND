@@ -91,6 +91,7 @@ async function crear(req, res) {
     }
 
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const ahora = nowEcuador().toJSDate();
 
     const result = await pool.query(

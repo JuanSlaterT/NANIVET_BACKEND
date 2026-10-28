@@ -17,8 +17,9 @@ function auditMiddleware(entidad, accion) {
         // Loguear en auditoría después de la operación
         const newValues = (accion === 'crear' || accion === 'editar') ? req.body : null;
 
-        // Extraer ID de la entidad de params o response
-        const entityId = req.params.id || data.data?.id || null;
+        // Extraer ID de la entidad:优先 usar req.entityId (set por controllers al crear),
+        // luego params, luego response data
+        const entityId = req.entityId || req.params.id || data.data?.id || null;
 
         // Calcular diff de campos
         let diffCampos = null;

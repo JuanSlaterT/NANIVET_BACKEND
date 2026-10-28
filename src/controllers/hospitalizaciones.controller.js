@@ -87,6 +87,7 @@ async function crear(req, res) {
   try {
     const { mascotaId, casoId, veterinarioId, citaId, fecha_ingreso, jaula_area, motivo } = req.body;
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

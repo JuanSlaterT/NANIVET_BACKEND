@@ -30,6 +30,7 @@ async function crearPeso(req, res) {
     }
 
     const id = genUuid();
+    req.entityId = id; // Para auditoría
     const result = await pool.query(
       'INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
       [id, req.params.id, peso_kg, fecha]

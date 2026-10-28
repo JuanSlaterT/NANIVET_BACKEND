@@ -215,6 +215,7 @@ async function crearPorCita(req, res) {
 
     const token = genToken();
     const id = genUuid();
+    req.entityId = id; // Para auditoría
 
     const result = await pool.query(
       `INSERT INTO puntuaciones (id, cita_id, token, mascota_id, veterinario_id, calificacion, respondida, fecha_creacion)
