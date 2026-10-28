@@ -20,12 +20,13 @@ if (DATABASE_URL) {
     statement_timeout: 10000,
     // Configuración para serverless (Vercel)
     application_name: 'nanivet',
-    // En serverless, mantener menos conexiones máximas para evitar agotamiento
-    max: isServerless ? 3 : (parseInt(process.env.DB_POOL_MAX || '10', 10)),
-    // Mantener al menos 1 conexión mínima en serverless para evitar reconexiones constantes
-    min: isServerless ? 1 : (parseInt(process.env.DB_POOL_MIN || '2', 10)),
-    // Reutilizar conexiones por 30 segundos para evitar que se cierren durante operaciones
-    idleTimeoutMillis: isServerless ? 30000 : 10000,
+    // En serverless, aumentar el max para evitar "no connection available"
+    // Vercel permite hasta 100 conexiones a Supabase
+    max: isServerless ? 20 : (parseInt(process.env.DB_POOL_MAX || '10', 10)),
+    // Mantener al menos 2 conexiones mínimas en serverless para evitar reconexiones
+    min: isServerless ? 2 : (parseInt(process.env.DB_POOL_MIN || '2', 10)),
+    // Reutilizar conexiones por 60 segundos para evitar cierres durante operaciones
+    idleTimeoutMillis: isServerless ? 60000 : 30000,
     // No permitir que el pool cierre el proceso si se queda sin conexiones
     allowExitOnIdle: false,
   });
