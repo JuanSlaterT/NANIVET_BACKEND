@@ -70,10 +70,23 @@ async function getDisponibles(veterinarioId, fecha, intervaloMinutos = 30) {
     const diaSemana = new Date(`${fecha}T00:00:00`).getDay();
 
     // Verificar si el veterinario trabaja ese día
-    if (!vet.dias_semana.includes(diaSemana)) return [];
+    // dias_semana de PostgreSQL: {1,2,3,4,5,6} -> array [1,2,3,4,5,6]
+    const diasArray = Array.isArray(vet.dias_semana) 
+      ? vet.dias_semana 
+      : (typeof vet.dias_semana === 'string' 
+        ? JSON.parse(vet.dias_semana.replace('{', '[').replace('}', ']')) 
+        : []);
+    
+    if (!diasArray.includes(diaSemana)) return [];
 
-    const inicio = vet.horario_inicio;
-    const fin = vet.horario_fin;
+    // Extraer solo HH:MM de HH:MM:SS si es necesario
+    const extraerHora = (timeStr) => {
+      if (!timeStr) return null;
+      return timeStr.length >= 5 ? timeStr.substring(0, 5) : timeStr;
+    };
+
+    const inicio = extraerHora(vet.horario_inicio);
+    const fin = extraerHora(vet.horario_fin);
 
     // Generar todos los slots posibles
     const slots = [];

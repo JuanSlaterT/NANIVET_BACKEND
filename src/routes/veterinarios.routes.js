@@ -8,7 +8,7 @@ const { auditMiddleware } = require('../middleware/audit.middleware');
 // Público - sin autenticación (frontend necesita listar veterinarios sin token)
 router.get('/', veterinariosController.listar);
 router.get('/:id', veterinariosController.obtener);
-router.get('/:id/bloqueos', authMiddleware, veterinariosController.obtenerBloqueos);
+router.get('/:id/bloqueos', veterinariosController.obtenerBloqueos);
 router.post('/:id/bloqueos', authMiddleware, rolesMiddleware(['admin']), auditMiddleware('Bloqueo', 'crear'), veterinariosController.crearBloqueo);
 router.delete('/bloqueos/:bloqueoId', authMiddleware, rolesMiddleware(['admin']), auditMiddleware('Bloqueo', 'eliminar'), veterinariosController.eliminarBloqueo);
 router.post('/sync/:userId', authMiddleware, rolesMiddleware(['admin']), veterinariosController.syncWithStaff);
