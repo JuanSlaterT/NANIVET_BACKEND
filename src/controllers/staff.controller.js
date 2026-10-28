@@ -176,6 +176,30 @@ async function createStaff(req, res) {
     );
 
     const newUser = result.rows[0];
+
+    // Si es veterinario, crear automáticamente el registro en la tabla veterinarios
+    let veterinario = null;
+    if (rol === 'veterinario') {
+      const vetId = genId('vet');
+      const vetResult = await pool.query(
+        `INSERT INTO veterinarios (id, user_id, nombre, especialidad, telefono, horario_inicio, horario_fin, dias_semana, intervalo_minutos, activo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id, user_id, nombre, especialidad, telefono, horario_inicio, horario_fin, dias_semana, intervalo_minutos, activo`,
+        [
+          vetId,
+          id,
+          nombre,
+          especialidad || null,
+          telefono || null,
+          '08:00',
+          '17:00',
+          '{1,2,3,4,5,6}',
+          30,
+          true
+        ]
+      );
+      veterinario = vetResult.rows[0];
+    }
     
     // Log de auditoría
     await auditService.logAudit(
@@ -185,7 +209,7 @@ async function createStaff(req, res) {
       'Staff',
       id,
       null,
-      { nombre, email, rol, telefono, especialidad: especialidad || null }
+      { nombre, email, rol, telefono, especialidad: especialidad || null, veterinario: veterinario }
     );
 
     return res.status(201).json({
@@ -197,7 +221,8 @@ async function createStaff(req, res) {
         telefono: newUser.telefono,
         especialidad: newUser.especialidad,
         activo: newUser.activo,
-        fechaAlta: newUser.fecha_alta
+        fechaAlta: newUser.fecha_alta,
+        veterinario: veterinario
       }
     });
   } catch (error) {
@@ -269,6 +294,29 @@ async function updateStaff(req, res) {
 
     const updatedUser = result.rows[0];
 
+    // Si es veterinario, sincronizar cambios en la tabla veterinarios
+    const esVeterinario = finalRol === 'veterinario';
+    let veterinarioSincronizado = null;
+    if (esVeterinario) {
+      // Obtener veterinario existente
+      const vetCheck = await pool.query('SELECT id FROM veterinarios WHERE user_id = $1', [id]);
+      if (vetCheck.rows.length > 0) {
+        const vetId = vetCheck.rows[0].id;
+        await pool.query(
+          `UPDATE veterinarios 
+           SET nombre = COALESCE($1, nombre),
+               especialidad = COALESCE($2, especialidad),
+               telefono = COALESCE($3, telefono),
+               activo = COALESCE($4, activo)
+           WHERE id = $5`,
+          [nombre || null, especialidad || null, telefono || null, activo !== undefined ? activo : oldUser.activo, vetId]
+        );
+        // Obtener veterinario actualizado
+        const vetUpdated = await pool.query('SELECT * FROM veterinarios WHERE id = $1', [vetId]);
+        veterinarioSincronizado = vetUpdated.rows[0];
+      }
+    }
+
     // Calcular diff para auditoría
     const diffCampos = [];
     const nuevosValores = {};
@@ -307,6 +355,22 @@ async function updateStaff(req, res) {
     valoresAnteriores.especialidad = oldUser.especialidad;
     valoresAnteriores.activo = oldUser.activo;
 
+    // Calcular diff para veterinario sincronizado
+    if (esVeterinario && veterinarioSincronizado) {
+      if (nombre && nombre !== oldUser.nombre) {
+        diffCampos.push({ campo: 'veterinario.nombre', antes: oldUser.nombre, despues: nombre });
+      }
+      if (especialidad !== undefined && especialidad !== oldUser.especialidad) {
+        diffCampos.push({ campo: 'veterinario.especialidad', antes: oldUser.especialidad, despues: especialidad });
+      }
+      if (telefono && telefono !== oldUser.telefono) {
+        diffCampos.push({ campo: 'veterinario.telefono', antes: oldUser.telefono, despues: telefono });
+      }
+      if (activo !== undefined && activo !== oldUser.activo) {
+        diffCampos.push({ campo: 'veterinario.activo', antes: oldUser.activo, despues: activo });
+      }
+    }
+
     // Log de auditoría
     await auditService.logAudit(
       req.user.nombre,
@@ -328,7 +392,8 @@ async function updateStaff(req, res) {
         telefono: updatedUser.telefono,
         especialidad: updatedUser.especialidad,
         activo: updatedUser.activo,
-        fechaAlta: updatedUser.fecha_alta
+        fechaAlta: updatedUser.fecha_alta,
+        veterinario: veterinarioSincronizado
       }
     });
   } catch (error) {
@@ -364,7 +429,7 @@ async function toggleActive(req, res) {
 
     const oldUser = existing.rows[0];
 
-    // Actualizar estado
+    // Actualizar estado en usuarios
     const result = await pool.query(
       `UPDATE usuarios 
        SET activo = $1 
@@ -374,6 +439,14 @@ async function toggleActive(req, res) {
     );
 
     const updatedUser = result.rows[0];
+
+    // Si es veterinario, sincronizar activo en la tabla veterinarios
+    if (oldUser.rol === 'veterinario') {
+      await pool.query(
+        `UPDATE veterinarios SET activo = $1 WHERE user_id = $2`,
+        [activo, id]
+      );
+    }
 
     // Log de auditoría
     const accion = activo ? 'activar' : 'desactivar';
@@ -427,6 +500,11 @@ async function deleteStaff(req, res) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'No puedes eliminarte a ti mismo' }
       });
+    }
+
+    // Si es veterinario, eliminar también de la tabla veterinarios
+    if (oldUser.rol === 'veterinario') {
+      await pool.query('DELETE FROM veterinarios WHERE user_id = $1', [id]);
     }
 
     // Eliminar usuario
