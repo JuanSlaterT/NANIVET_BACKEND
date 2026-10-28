@@ -515,4 +515,4 @@ async function getSlots(req, res) {
   }
 }
 
-module.exports = { listar, obtener, obtenerPorToken, crear, actualizar, eliminar, confirmarPorToken, cancelarPorToken, reprogramarPorToken, getSlots };
+module.exports = { listar, obtener, obtenerPorToken, obtenerProximasPorVeterinario, crear, actualizar, eliminar, confirmarPorToken, cancelarPorToken, reprogramarPorToken, getSlots };
