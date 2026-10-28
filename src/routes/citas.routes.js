@@ -8,6 +8,7 @@ const { auditMiddleware } = require('../middleware/audit.middleware');
 // Públicos (sin auth)
 router.get('/token/:token', optionalAuth, citasController.obtenerPorToken);
 router.get('/veterinario/:vetId/slots', citasController.getSlots);
+router.get('/veterinario/:vetId/proximas', citasController.obtenerProximasPorVeterinario);
 router.post('/token/:token/confirmar', optionalAuth, citasController.confirmarPorToken);
 router.post('/token/:token/cancelar', optionalAuth, citasController.cancelarPorToken);
 router.post('/token/:token/reprogramar', optionalAuth, citasController.reprogramarPorToken);

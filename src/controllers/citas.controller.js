@@ -5,7 +5,7 @@ const { getOcupados } = require('../services/availability.service');
 
 /**
  * GET /api/citas
- * Listar citas con filtros
+ * Listar citas con filtros (requiere autenticación)
  */
 async function listar(req, res) {
   try {
@@ -42,6 +42,36 @@ async function listar(req, res) {
     const result = await pool.query(query, params);
     return res.json({ data: result.rows });
   } catch (err) {
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  }
+}
+
+/**
+ * GET /api/citas/veterinario/:vetId/proximas
+ * Obtener citas próximas de un veterinario (hoy a +14 días) — sin autenticación
+ */
+async function obtenerProximasPorVeterinario(req, res) {
+  try {
+    const { vetId } = req.params;
+
+    const result = await pool.query(
+      `
+        SELECT ci.*, mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
+               v.nombre AS veterinario_nombre
+        FROM citas ci
+        JOIN mascotas mas ON ci.mascota_id = mas.id
+        JOIN veterinarios v ON ci.veterinario_id = v.id
+        WHERE ci.veterinario_id = $1
+          AND ci.fecha_hora::date >= CURRENT_DATE
+          AND ci.fecha_hora::date <= CURRENT_DATE + INTERVAL '14 days'
+        ORDER BY ci.fecha_hora ASC
+      `,
+      [vetId]
+    );
+
+    return res.json({ data: result.rows });
+  } catch (err) {
+    console.error('Error en obtenerProximasPorVeterinario:', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
