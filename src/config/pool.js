@@ -22,10 +22,10 @@ if (DATABASE_URL) {
     application_name: 'nanivet',
     // En serverless, mantener menos conexiones máximas para evitar agotamiento
     max: isServerless ? 3 : (parseInt(process.env.DB_POOL_MAX || '10', 10)),
-    // Sin conexiones mínimas en serverless (ahorra recursos)
-    min: isServerless ? 0 : (parseInt(process.env.DB_POOL_MIN || '2', 10)),
-    // Reutilizar conexiones solo si no han estado inactivas mucho tiempo
-    idleTimeoutMillis: 10000,
+    // Mantener al menos 1 conexión mínima en serverless para evitar reconexiones constantes
+    min: isServerless ? 1 : (parseInt(process.env.DB_POOL_MIN || '2', 10)),
+    // Reutilizar conexiones por 30 segundos para evitar que se cierren durante operaciones
+    idleTimeoutMillis: isServerless ? 30000 : 10000,
     // No permitir que el pool cierre el proceso si se queda sin conexiones
     allowExitOnIdle: false,
   });
