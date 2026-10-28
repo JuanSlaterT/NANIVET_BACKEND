@@ -2,7 +2,7 @@ const pool = require('../config/pool');
 const { genToken } = require('../utils/genToken');
 const { nowEcuador, formatISO } = require('../utils/dates');
 const { getOcupados } = require('../services/availability.service');
-
+const { genUuid } = require('../utils/genUuid');
 /**
  * GET /api/citas
  * Listar citas con filtros (requiere autenticación)
@@ -133,11 +133,11 @@ async function obtenerPorToken(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascotaId, veterinarioId, tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
-    const token = genToken();
+    const { mascota_id: mascotaId, veterinario_id: veterinarioId, tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
+
     const id = genUuid();
     req.entityId = id; // Para auditoría
-
+    const token = genToken();
     // Verificar disponibilidad
     const fecha = fecha_hora.split('T')[0];
     const ocupados = await getOcupados(veterinarioId, fecha);
@@ -243,6 +243,7 @@ async function crear(req, res) {
 
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {
+    console.log(err)
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -278,7 +279,7 @@ async function actualizar(req, res) {
     // Si la cita se marca como 'atendida' y tiene peso, registrar peso, crear puntuación y auto-registrar vacunas/desparasitaciones
     if (estado === 'atendida') {
       const fecha = (updatedCita.fecha_hora && updatedCita.fecha_hora.split('T')[0]) || new Date().toISOString().split('T')[0];
-      
+
       // Registrar peso si se proporcionó
       if (peso_cita) {
         try {

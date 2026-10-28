@@ -42,7 +42,7 @@ async function listar(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascotaId, casoId, producto, dosis, fecha, proxima_dosis, veterinarioId } = req.body;
+    const { mascota_id:mascotaId, caso_id:casoId, producto, dosis, fecha, proxima_dosis, veterinario_id:veterinarioId } = req.body;
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;

@@ -42,9 +42,8 @@ async function listar(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascotaId, casoId, tipo, fecha, anestesia, notas, prognosis, veterinarioId } = req.body;
+    const { mascota_id:mascotaId, caso_id:casoId, tipo, fecha, anestesia, notas, prognosis, veterinario_id:veterinarioId } = req.body;
     const id = genUuid();
-    req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

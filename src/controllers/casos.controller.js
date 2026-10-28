@@ -66,7 +66,7 @@ async function obtener(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascotaId, motivo, soap, diagnostico, estado, veterinarioId } = req.body;
+    const { mascota_id:mascotaId, motivo, soap, diagnostico, estado, veterinario_id:veterinarioId } = req.body;
 
     // Verificar que la mascota existe
     const mascotaCheck = await pool.query('SELECT id FROM mascotas WHERE id = $1', [mascotaId]);

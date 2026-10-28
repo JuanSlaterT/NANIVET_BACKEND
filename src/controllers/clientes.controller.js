@@ -66,7 +66,12 @@ async function crear(req, res) {
   try {
     const { nombre, apellido, telefono, cedula, email, direccion, consentimiento_datos, consentimiento_comunicaciones } = req.body;
 
-    if (!consentimiento_datos) {
+    // Extraer valor booleano si viene como objeto { aceptado: true, ... }
+    const datosAceptado = typeof consentimiento_datos === 'object' ? consentimiento_datos.aceptado : consentimiento_datos;
+    const comunicacionesAceptado = typeof consentimiento_comunicaciones === 'object' ? consentimiento_comunicaciones.aceptado : consentimiento_comunicaciones;
+    const versionAviso = typeof consentimiento_datos === 'object' ? consentimiento_datos.versionAviso : 'v1.0';
+
+    if (!datosAceptado) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Consentimiento de datos es obligatorio' } });
     }
 
@@ -98,12 +103,13 @@ async function crear(req, res) {
       `INSERT INTO clientes (id, nombre, apellido, telefono, cedula, email, direccion, 
        consentimiento_datos, consentimiento_fecha, consentimiento_version, 
        consentimiento_comunicaciones, consentimiento_comunicaciones_fecha, fecha_creacion, fecha_actualizacion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v1.0', $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [id, nombre, apellido, telefono, cedula, email || null, direccion || null,
-       consentimiento_datos, ahora, consentimiento_comunicaciones || false,
-       consentimiento_comunicaciones ? ahora : null, ahora, ahora]
+       datosAceptado, ahora, versionAviso || 'v1.0', comunicacionesAceptado || false,
+       comunicacionesAceptado ? ahora : null, ahora, ahora]
     );
+
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -138,15 +144,47 @@ async function actualizar(req, res) {
 
 /**
  * DELETE /api/clientes/:id
- * Eliminar cliente
+ * Eliminar cliente con cascade a mascotas y todo lo anclado a ellas
  */
 async function eliminar(req, res) {
   try {
-    const check = await pool.query('SELECT COUNT(*) FROM mascotas WHERE cliente_id = $1', [req.params.id]);
-    if (parseInt(check.rows[0].count) > 0) {
-      return res.status(400).json({ error: { code: 'RESTRICT_DELETE', message: 'No se puede eliminar cliente con mascotas' } });
+    const clienteId = req.params.id;
+
+    // Primero eliminar todas las mascotas (que a su vez elimina todo lo anclado)
+    const mascotas = await pool.query('SELECT id FROM mascotas WHERE cliente_id = $1', [clienteId]);
+    for (const mascota of mascotas.rows) {
+      // hospitalizaciones → (medicaciones → tomas, evoluciones)
+      await pool.query('DELETE FROM hospitalizaciones WHERE mascota_id = $1', [mascota.id]);
+      // alertas_mascotas
+      await pool.query('DELETE FROM alertas_mascotas WHERE mascota_id = $1', [mascota.id]);
+      // registros de peso
+      await pool.query('DELETE FROM registros_peso WHERE mascota_id = $1', [mascota.id]);
+      // citas
+      await pool.query('DELETE FROM citas WHERE mascota_id = $1', [mascota.id]);
+      // casos clínicos
+      await pool.query('DELETE FROM casos_clinicos WHERE mascota_id = $1', [mascota.id]);
+      // vacunas
+      await pool.query('DELETE FROM vacunas WHERE mascota_id = $1', [mascota.id]);
+      // tratamientos
+      await pool.query('DELETE FROM tratamientos WHERE mascota_id = $1', [mascota.id]);
+      // desparasitaciones
+      await pool.query('DELETE FROM desparasitaciones WHERE mascota_id = $1', [mascota.id]);
+      // cirugías
+      await pool.query('DELETE FROM cirugias WHERE mascota_id = $1', [mascota.id]);
+      // exámenes adjuntos
+      await pool.query('DELETE FROM examenes_adjuntos WHERE mascota_id = $1', [mascota.id]);
+      // puntuaciones
+      await pool.query('DELETE FROM puntuaciones WHERE mascota_id = $1', [mascota.id]);
+      // finalmente la mascota
+      await pool.query('DELETE FROM mascotas WHERE id = $1', [mascota.id]);
     }
-    await pool.query('DELETE FROM clientes WHERE id = $1', [req.params.id]);
+
+    // Campana envios
+    await pool.query('DELETE FROM campana_envios WHERE cliente_id = $1', [clienteId]);
+
+    // Finalmente eliminar el cliente
+    await pool.query('DELETE FROM clientes WHERE id = $1', [clienteId]);
+
     return res.json({ data: { deleted: true } });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });

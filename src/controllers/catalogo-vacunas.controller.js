@@ -52,7 +52,7 @@ async function obtenerPorId(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { nombre, intervaloDias, especie, activa } = req.body;
+    const { nombre, intervalo_dias:intervaloDias, especie, activa } = req.body;
     const id = genUuid();
     req.entityId = id; // Para auditoría
 

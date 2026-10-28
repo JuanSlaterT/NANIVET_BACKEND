@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/pool');
-const { genId } = require('../utils/genId');
+const { genUuid } = require('../utils/genUuid');
 const auditService = require('../services/audit.service');
 
 /**
@@ -124,7 +124,7 @@ async function getStaffByEmail(req, res) {
  */
 async function createStaff(req, res) {
   try {
-    const { nombre, email, password, rol, telefono, especialidad, fechaAlta } = req.body;
+    const { nombre, email, password, rol, telefono, especialidad, fecha_alta:fechaAlta } = req.body;
 
     // Validaciones
     if (!nombre || !email || !password || !rol || !telefono) {
@@ -164,8 +164,8 @@ async function createStaff(req, res) {
     // Hashear contraseña
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Generar ID
-    const id = genId('usr');
+    // Generar ID con UUID
+    const id = genUuid();
 
     // Insertar usuario
     const result = await pool.query(
@@ -180,7 +180,7 @@ async function createStaff(req, res) {
     // Si es veterinario, crear automáticamente el registro en la tabla veterinarios
     let veterinario = null;
     if (rol === 'veterinario') {
-      const vetId = genId('vet');
+      const vetId = genUuid();
       const vetResult = await pool.query(
         `INSERT INTO veterinarios (id, user_id, nombre, especialidad, telefono, horario_inicio, horario_fin, dias_semana, intervalo_minutos, activo)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

@@ -21,6 +21,7 @@ function auditMiddleware(entidad, accion) {
         // Extraer ID de la entidad:优先 usar req.entityId (set por controllers al crear),
         // luego params, luego response data
         const entityId = req.entityId || req.params.id || data.data?.id || null;
+        console.log(entityId)
 
         // Calcular diff de campos
         let diffCampos = null;

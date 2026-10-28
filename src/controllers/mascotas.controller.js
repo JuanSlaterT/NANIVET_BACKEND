@@ -64,10 +64,11 @@ async function obtener(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { clienteId, nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, esterilizado, microchip, alergias, notas } = req.body;
+    const { clienteId, cliente_id, nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, esterilizado, microchip, alergias, notas } = req.body;
+    const idCliente = clienteId || cliente_id;
 
     // Verificar que el cliente existe
-    const clientCheck = await pool.query('SELECT id FROM clientes WHERE id = $1', [clienteId]);
+    const clientCheck = await pool.query('SELECT id FROM clientes WHERE id = $1', [idCliente]);
     if (clientCheck.rows.length === 0) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Cliente no encontrado' } });
     }
@@ -79,7 +80,7 @@ async function crear(req, res) {
        esterilizado, microchip, alergias, notas, fecha_creacion, fecha_actualizacion)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
        RETURNING *`,
-      [id, clienteId, nombre, especie, sexo, fecha_nacimiento || null, raza || null, color || null,
+      [id, idCliente, nombre, especie, sexo, fecha_nacimiento || null, raza || null, color || null,
        foto_url || null, esterilizado || false, microchip || null, alergias || null, notas || null]
     );
     return res.status(201).json({ data: result.rows[0] });
@@ -118,11 +119,49 @@ async function actualizar(req, res) {
 
 /**
  * DELETE /api/mascotas/:id
- * Eliminar mascota
+ * Eliminar mascota con cascade a todos los registros asociados
  */
 async function eliminar(req, res) {
   try {
-    await pool.query('DELETE FROM mascotas WHERE id = $1', [req.params.id]);
+    const mascotaId = req.params.id;
+
+    // Orden importa: primero hijas con CASCADE, luego las que tienen RESTRICT
+    // hospitalizaciones → (medicaciones → tomas, evoluciones) [CASCADE automático]
+    await pool.query('DELETE FROM hospitalizaciones WHERE mascota_id = $1', [mascotaId]);
+
+    // alertas_mascotas [ya tiene CASCADE en FK]
+    await pool.query('DELETE FROM alertas_mascotas WHERE mascota_id = $1', [mascotaId]);
+
+    // Registros de peso
+    await pool.query('DELETE FROM registros_peso WHERE mascota_id = $1', [mascotaId]);
+
+    // Citas (genera puntuaciones, vacunas, desparasitaciones, hospitalizaciones automáticas)
+    await pool.query('DELETE FROM citas WHERE mascota_id = $1', [mascotaId]);
+
+    // Casos clínicos
+    await pool.query('DELETE FROM casos_clinicos WHERE mascota_id = $1', [mascotaId]);
+
+    // Vacunas
+    await pool.query('DELETE FROM vacunas WHERE mascota_id = $1', [mascotaId]);
+
+    // Tratamientos
+    await pool.query('DELETE FROM tratamientos WHERE mascota_id = $1', [mascotaId]);
+
+    // Desparasitaciones
+    await pool.query('DELETE FROM desparasitaciones WHERE mascota_id = $1', [mascotaId]);
+
+    // Cirugías
+    await pool.query('DELETE FROM cirugias WHERE mascota_id = $1', [mascotaId]);
+
+    // Exámenes adjuntos
+    await pool.query('DELETE FROM examenes_adjuntos WHERE mascota_id = $1', [mascotaId]);
+
+    // Puntuaciones
+    await pool.query('DELETE FROM puntuaciones WHERE mascota_id = $1', [mascotaId]);
+
+    // Finalmente eliminar la mascota
+    await pool.query('DELETE FROM mascotas WHERE id = $1', [mascotaId]);
+
     return res.json({ data: { deleted: true } });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });

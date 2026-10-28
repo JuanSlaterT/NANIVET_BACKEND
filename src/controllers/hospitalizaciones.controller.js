@@ -85,7 +85,7 @@ async function obtener(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascotaId, casoId, veterinarioId, citaId, fecha_ingreso, jaula_area, motivo } = req.body;
+    const { mascota_id:mascotaId, caso_id:casoId, veterinario_id:veterinarioId, cita_id:citaId, fecha_ingreso, jaula_area, motivo } = req.body;
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
