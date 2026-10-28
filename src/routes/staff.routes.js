@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const staffController = require('../controllers/staff.controller');
-const authMiddleware = require('../middleware/auth.middleware');
-const rolesMiddleware = require('../middleware/roles.middleware');
+const { authMiddleware } = require('../middleware/auth.middleware');
+const { rolesMiddleware } = require('../middleware/roles.middleware');
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);

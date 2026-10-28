@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const veterinariosController = require('../controllers/veterinarios.controller');
-const authMiddleware = require('../middleware/auth.middleware');
-const rolesMiddleware = require('../middleware/roles.middleware');
-const auditMiddleware = require('../middleware/audit.middleware');
+const { authMiddleware } = require('../middleware/auth.middleware');
+const { rolesMiddleware } = require('../middleware/roles.middleware');
+const { auditMiddleware } = require('../middleware/audit.middleware');
 
 router.get('/', authMiddleware, veterinariosController.listar);
 router.get('/:id', authMiddleware, veterinariosController.obtener);
