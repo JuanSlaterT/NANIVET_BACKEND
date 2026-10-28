@@ -12,6 +12,7 @@ if (DATABASE_URL) {
     ssl: {
       rejectUnauthorized: false, // Supabase usa auto-firmado en free tier
     },
+    family: 4, // Forzar IPv4 para evitar problemas de conectividad en algunos hosting
     connectionTimeoutMillis: 5000,
     statement_timeout: 10000,
   });
@@ -27,6 +28,7 @@ if (DATABASE_URL) {
     max: dbConfig.DB_POOL_MAX,
     min: dbConfig.DB_POOL_MIN,
     ssl: dbConfig.DB_HOST !== 'localhost' ? { rejectUnauthorized: false } : false,
+    family: 4, // Forzar IPv4
     connectionTimeoutMillis: 5000,
     statement_timeout: 10000,
   });

@@ -11,7 +11,6 @@ async function getAllStaff(req, res) {
   try {
     const staffData = req.user?.rol === 'admin' ? true : false;
     
-    const pool = pool;
     const result = await pool.query(
       `SELECT 
         id, nombre, email, rol, telefono, especialidad, 
