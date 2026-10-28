@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/desparasitaciones
@@ -42,7 +43,7 @@ async function listar(req, res) {
 async function crear(req, res) {
   try {
     const { mascotaId, casoId, producto, dosis, fecha, proxima_dosis, veterinarioId } = req.body;
-    const id = `des_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

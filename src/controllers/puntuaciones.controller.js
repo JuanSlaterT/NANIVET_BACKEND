@@ -1,6 +1,7 @@
 const pool = require('../config/pool');
 const { genToken } = require('../utils/genToken');
 const { nowEcuador } = require('../utils/dates');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/puntuaciones
@@ -213,7 +214,7 @@ async function crearPorCita(req, res) {
     }
 
     const token = genToken();
-    const id = `pnt_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     const result = await pool.query(
       `INSERT INTO puntuaciones (id, cita_id, token, mascota_id, veterinario_id, calificacion, respondida, fecha_creacion)

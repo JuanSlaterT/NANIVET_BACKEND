@@ -135,7 +135,7 @@ async function crear(req, res) {
   try {
     const { mascotaId, veterinarioId, tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
     const token = genToken();
-    const id = `cit_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     // Verificar disponibilidad
     const fecha = fecha_hora.split('T')[0];
@@ -162,7 +162,7 @@ async function crear(req, res) {
           `INSERT INTO hospitalizaciones (id, mascota_id, veterinario_id, cita_id, fecha_ingreso, jaula_area, motivo, estado, fecha_creacion)
            VALUES ($1, $2, $3, $4, $5, $6, $7, 'hospitalizado', NOW())`,
           [
-            `hos_${Date.now().toString().slice(-6)}`,
+            genUuid(),
             mascotaId,
             veterinarioId,
             id,
@@ -179,7 +179,7 @@ async function crear(req, res) {
       // Registrar peso si se proporcionó
       if (peso_cita) {
         try {
-          const pesoId = `pes_${Date.now().toString().slice(-6)}`;
+          const pesoId = genUuid();
           await pool.query(
             `INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion)
              VALUES ($1, $2, $3, $4, NOW())`,
@@ -193,7 +193,7 @@ async function crear(req, res) {
       // Crear puntuación pendiente
       try {
         const pntToken = genToken();
-        const pntId = `pnt_${Date.now().toString().slice(-6)}`;
+        const pntId = genUuid();
         await pool.query(
           `INSERT INTO puntuaciones (id, cita_id, token, mascota_id, veterinario_id, calificacion, respondida, fecha_creacion)
            VALUES ($1, $2, $3, $4, $5, 0, false, NOW())`,
@@ -206,7 +206,7 @@ async function crear(req, res) {
       // Auto-crear vacuna si es tipo 'vacunacion'
       if (tipo_servicio === 'vacunacion') {
         try {
-          const vacId = `vac_${Date.now().toString().slice(-6)}`;
+          const vacId = genUuid();
           const nombreVacuna = motivo && motivo.trim().length > 0 ? motivo : 'Vacunación';
           // Calcular próxima dosis (1 año por defecto)
           const proximaDosis = new Date(fecha);
@@ -224,7 +224,7 @@ async function crear(req, res) {
       // Auto-crear desparasitación si es tipo 'desparasitacion'
       if (tipo_servicio === 'desparasitacion') {
         try {
-          const desId = `des_${Date.now().toString().slice(-6)}`;
+          const desId = genUuid();
           const producto = motivo && motivo.trim().length > 0 ? motivo : 'Desparasitación';
           // Calcular próxima desparasitación (3 meses por defecto)
           const proximaDes = new Date(fecha);
@@ -281,7 +281,7 @@ async function actualizar(req, res) {
       // Registrar peso si se proporcionó
       if (peso_cita) {
         try {
-          const pesoId = `pes_${Date.now().toString().slice(-6)}`;
+          const pesoId = genUuid();
           await pool.query(
             `INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion)
              VALUES ($1, $2, $3, $4, NOW())`,
@@ -295,7 +295,7 @@ async function actualizar(req, res) {
       // Crear puntuación pendiente
       try {
         const pntToken = genToken();
-        const pntId = `pnt_${Date.now().toString().slice(-6)}`;
+        const pntId = genUuid();
         await pool.query(
           `INSERT INTO puntuaciones (id, cita_id, token, mascota_id, veterinario_id, calificacion, respondida, fecha_creacion)
            VALUES ($1, $2, $3, $4, $5, 0, false, NOW())`,
@@ -308,7 +308,7 @@ async function actualizar(req, res) {
       // Auto-crear vacuna si es tipo 'vacunacion'
       if (updatedCita.tipo_servicio === 'vacunacion') {
         try {
-          const vacId = `vac_${Date.now().toString().slice(-6)}`;
+          const vacId = genUuid();
           const nombreVacuna = (updatedCita.motivo && updatedCita.motivo.trim().length > 0) ? updatedCita.motivo : 'Vacunación';
           // Calcular próxima dosis (1 año por defecto)
           const proximaDosis = new Date(fecha);
@@ -326,7 +326,7 @@ async function actualizar(req, res) {
       // Auto-crear desparasitación si es tipo 'desparasitacion'
       if (updatedCita.tipo_servicio === 'desparasitacion') {
         try {
-          const desId = `des_${Date.now().toString().slice(-6)}`;
+          const desId = genUuid();
           const producto = (updatedCita.motivo && updatedCita.motivo.trim().length > 0) ? updatedCita.motivo : 'Desparasitación';
           // Calcular próxima desparasitación (3 meses por defecto)
           const proximaDes = new Date(fecha);
@@ -348,7 +348,7 @@ async function actualizar(req, res) {
             `INSERT INTO hospitalizaciones (id, mascota_id, veterinario_id, cita_id, fecha_ingreso, jaula_area, motivo, estado, fecha_creacion)
              VALUES ($1, $2, $3, $4, $5, $6, $7, 'hospitalizado', NOW())`,
             [
-              `hos_${Date.now().toString().slice(-6)}`,
+              genUuid(),
               updatedCita.mascota_id,
               updatedCita.veterinario_id,
               req.params.id,

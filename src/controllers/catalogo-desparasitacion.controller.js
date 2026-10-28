@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/catalogo/desparasitacion
@@ -52,7 +53,7 @@ async function obtenerPorId(req, res) {
 async function crear(req, res) {
   try {
     const { nombre, intervaloMeses, via, activa } = req.body;
-    const id = `cd_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     // Validaciones
     if (!nombre || !intervaloMeses) {

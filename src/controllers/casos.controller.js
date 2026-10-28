@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/casos
@@ -73,7 +74,7 @@ async function crear(req, res) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Mascota no encontrada' } });
     }
 
-    const id = `cas_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

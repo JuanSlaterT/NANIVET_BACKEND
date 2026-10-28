@@ -197,7 +197,7 @@ async function listarMedicaciones(req, res) {
 async function crearMedicacion(req, res) {
   try {
     const { medicamento, dosis, via, frecuencia, horas_programadas, fecha_inicio, fecha_fin } = req.body;
-    const id = `med_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const db = pool;
 
     const result = await db.query(
@@ -277,7 +277,7 @@ async function registrarToma(req, res) {
       return res.json({ data: result.rows[0] });
     } else {
       // Crear nueva toma
-      const tomaId = `tom_${Date.now().toString().slice(-6)}`;
+      const tomaId = genUuid();
       const result = await db.query(
         `INSERT INTO tomas_medicacion (id, medicacion_id, fecha, hora_programada, administrada, hora_real, usuario_administro, fecha_creacion)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())

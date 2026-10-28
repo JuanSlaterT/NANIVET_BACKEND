@@ -1,11 +1,12 @@
 const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * Loguea una acción en la tabla auditoria
  */
 async function log(usuario, rol, accion, entidad, entidadId, valoresAnteriores, valoresNuevos, diffCampos, ipAddress, userAgent) {
-  const id = `aud_${Date.now().toString(36)}`;
+  const id = genUuid();
 
   await pool.query(
     `INSERT INTO auditoria (id, usuario, rol, fecha_hora, accion, entidad, entidad_id, 

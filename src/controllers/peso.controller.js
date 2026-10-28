@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/mascotas/:id/pesos
@@ -28,7 +29,7 @@ async function crearPeso(req, res) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'peso_kg y fecha son requeridos' } });
     }
 
-    const id = `pes_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const result = await pool.query(
       'INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
       [id, req.params.id, peso_kg, fecha]

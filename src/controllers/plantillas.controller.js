@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/plantillas
@@ -53,7 +54,7 @@ async function obtener(req, res) {
 async function crear(req, res) {
   try {
     const { nombre, tipo, contenido, categoria } = req.body;
-    const id = `plt_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     const result = await pool.query(
       `INSERT INTO plantillas (id, nombre, tipo, contenido, categoria, creado_por, fecha_creacion, fecha_actualizacion)

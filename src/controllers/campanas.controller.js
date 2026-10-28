@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 const campanaService = require('../services/campana.service');
 const { normalizePhone, generateWhatsAppLink } = require('../services/whatsapp.service');
 const { nowEcuador } = require('../utils/dates');
@@ -74,7 +75,7 @@ async function enviarCampana(req, res) {
           `INSERT INTO campana_envios (id, segmento, cliente_id, mascota_id, motivo, fecha_enviado, enviado_por)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
-            `cme_${Date.now().toString().slice(-6)}`,
+            genUuid(),
             segmento,
             envio.clienteId,
             envio.mascotaId || null,

@@ -1,6 +1,7 @@
 const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
 const { validatePhone, validateCedula, validateEmail } = require('../utils/validators');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/clientes
@@ -89,7 +90,7 @@ async function crear(req, res) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Nombre y apellido son requeridos' } });
     }
 
-    const id = `cli_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const ahora = nowEcuador().toJSDate();
 
     const result = await pool.query(

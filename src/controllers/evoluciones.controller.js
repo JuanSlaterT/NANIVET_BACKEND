@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/hospitalizaciones/:id/evoluciones
@@ -23,7 +24,7 @@ async function listarEvoluciones(req, res) {
 async function crearEvolucion(req, res) {
   try {
     const { fecha, signos_vitales, estado_general, observaciones, veterinarioId } = req.body;
-    const id = `evd_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

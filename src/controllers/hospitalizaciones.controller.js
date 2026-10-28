@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/hospitalizaciones
@@ -85,7 +86,7 @@ async function obtener(req, res) {
 async function crear(req, res) {
   try {
     const { mascotaId, casoId, veterinarioId, citaId, fecha_ingreso, jaula_area, motivo } = req.body;
-    const id = `hos_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const vetId = veterinarioId || req.user.veterinario_id;
 
     const result = await pool.query(

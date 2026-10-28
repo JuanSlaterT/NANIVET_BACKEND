@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const authMiddleware = require('../middleware/auth.middleware');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/veterinarios
@@ -80,7 +81,7 @@ async function obtenerBloqueos(req, res) {
 async function crearBloqueo(req, res) {
   try {
     const { fecha, motivo } = req.body;
-    const id = `blk_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const result = await pool.query(
       `INSERT INTO horarios_bloqueados (id, veterinario_id, fecha, motivo) 
        VALUES ($1, $2, $3, $4) 

@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/mascotas
@@ -71,7 +72,7 @@ async function crear(req, res) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Cliente no encontrado' } });
     }
 
-    const id = `mas_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const result = await pool.query(
       `INSERT INTO mascotas (id, cliente_id, nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, 
        esterilizado, microchip, alergias, notas, fecha_creacion, fecha_actualizacion)

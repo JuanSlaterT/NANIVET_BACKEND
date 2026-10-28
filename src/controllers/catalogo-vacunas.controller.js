@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/catalogo/vacunas
@@ -52,7 +53,7 @@ async function obtenerPorId(req, res) {
 async function crear(req, res) {
   try {
     const { nombre, intervaloDias, especie, activa } = req.body;
-    const id = `cv_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     // Validaciones
     if (!nombre || !intervaloDias) {

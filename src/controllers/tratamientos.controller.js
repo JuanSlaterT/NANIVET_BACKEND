@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/tratamientos
@@ -43,7 +44,7 @@ async function listar(req, res) {
 async function crear(req, res) {
   try {
     const { mascotaId, casoId, nombre, dosis, duracion, fecha, veterinarioId } = req.body;
-    const id = `tra_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
     const vetId = veterinarioId || req.user.veterinario_id;
     const db = pool;
 

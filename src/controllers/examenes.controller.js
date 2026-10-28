@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
 
 /**
  * GET /api/examenes
@@ -42,7 +43,7 @@ async function listar(req, res) {
 async function crear(req, res) {
   try {
     const { mascotaId, casoId, tipo, titulo, descripcion, fecha, archivo_url, veterinarioId } = req.body;
-    const id = `exa_${Date.now().toString().slice(-6)}`;
+    const id = genUuid();
 
     const result = await pool.query(
       `INSERT INTO examenes_adjuntos (id, mascota_id, caso_id, tipo, titulo, descripcion, fecha, archivo_url, veterinario_id, fecha_creacion)
