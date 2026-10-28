@@ -1,26 +1,8 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
+const pool = require('../config/pool');
 const dotenv = require('dotenv');
 dotenv.config();
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
 
 /**
  * POST /api/auth/login
@@ -36,7 +18,6 @@ async function login(req, res) {
       });
     }
 
-    const pool = getPool();
     const result = await pool.query(
       'SELECT * FROM usuarios WHERE email = $1 AND activo = true',
       [email]
@@ -134,7 +115,6 @@ async function refresh(req, res) {
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const pool = getPool();
 
     const result = await pool.query(
       'SELECT id, nombre, email, rol, telefono, especialidad FROM usuarios WHERE id = $1 AND activo = true',
@@ -202,7 +182,6 @@ async function refresh(req, res) {
  */
 async function getMe(req, res) {
   try {
-    const pool = getPool();
     const result = await pool.query(
       'SELECT id, nombre, email, rol, telefono, especialidad FROM usuarios WHERE id = $1',
       [req.user.id]

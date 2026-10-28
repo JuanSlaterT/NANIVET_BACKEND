@@ -8,7 +8,6 @@ const { authMiddleware } = require('../middleware/auth.middleware');
  */
 async function buscarGlobal(req, res) {
   try {
-    const pool = require('../config/db').getPool();
     const { q } = req.query;
 
     if (!q || q.trim().length < 2) {

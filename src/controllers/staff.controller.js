@@ -1,25 +1,7 @@
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
+const pool = require('../config/pool');
 const { genId } = require('../utils/genId');
 const auditService = require('../services/audit.service');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
 
 /**
  * GET /api/staff
@@ -29,7 +11,7 @@ async function getAllStaff(req, res) {
   try {
     const staffData = req.user?.rol === 'admin' ? true : false;
     
-    const pool = getPool();
+    const pool = pool;
     const result = await pool.query(
       `SELECT 
         id, nombre, email, rol, telefono, especialidad, 
@@ -68,7 +50,7 @@ async function getStaffById(req, res) {
   try {
     const { id } = req.params;
 
-    const pool = getPool();
+    const pool = pool;
     const result = await pool.query(
       `SELECT 
         id, nombre, email, rol, telefono, especialidad, 
@@ -115,7 +97,7 @@ async function getStaffByEmail(req, res) {
   try {
     const { email } = req.params;
 
-    const pool = getPool();
+    const pool = pool;
     const result = await pool.query(
       `SELECT id, nombre, email, rol FROM usuarios WHERE email = $1`,
       [email]
@@ -175,7 +157,7 @@ async function createStaff(req, res) {
     }
 
     // Verificar email único
-    const pool = getPool();
+    const pool = pool;
     const existing = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({
@@ -240,7 +222,7 @@ async function updateStaff(req, res) {
     const { nombre, email, password, rol, telefono, especialidad, activo, fechaAlta } = req.body;
 
     // Verificar que existe
-    const pool = getPool();
+    const pool = pool;
     const existing = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({
@@ -377,7 +359,7 @@ async function toggleActive(req, res) {
       });
     }
 
-    const pool = getPool();
+    const pool = pool;
     
     // Verificar que existe
     const existing = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
@@ -437,7 +419,7 @@ async function deleteStaff(req, res) {
   try {
     const { id } = req.params;
 
-    const pool = getPool();
+    const pool = pool;
     
     // Verificar que existe
     const existing = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);

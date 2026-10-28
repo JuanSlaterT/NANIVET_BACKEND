@@ -1,22 +1,4 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
+const pool = require('../config/pool');
 
 /**
  * GET /api/tratamientos
@@ -25,7 +7,7 @@ function getPool() {
 async function listar(req, res) {
   try {
     const { mascotaId, casoId } = req.query;
-    const db = getPool();
+    const db = pool;
     let query = `
       SELECT t.*, mas.nombre AS mascota_nombre, v.nombre AS veterinario_nombre
       FROM tratamientos t
@@ -63,7 +45,7 @@ async function crear(req, res) {
     const { mascotaId, casoId, nombre, dosis, duracion, fecha, veterinarioId } = req.body;
     const id = `tra_${Date.now().toString().slice(-6)}`;
     const vetId = veterinarioId || req.user.veterinario_id;
-    const db = getPool();
+    const db = pool;
 
     const result = await db.query(
       `INSERT INTO tratamientos (id, mascota_id, caso_id, nombre, dosis, duracion, fecha, veterinario_id, fecha_creacion)
@@ -103,7 +85,7 @@ async function actualizar(req, res) {
     fields.push(`fecha_actualizacion = NOW()`);
     const query = `UPDATE tratamientos SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     values.push(req.params.id);
-    const db = getPool();
+    const db = pool;
 
     const result = await db.query(query, values);
     if (result.rows.length === 0) {
@@ -121,7 +103,7 @@ async function actualizar(req, res) {
  */
 async function eliminar(req, res) {
   try {
-    const db = getPool();
+    const db = pool;
     await db.query('DELETE FROM tratamientos WHERE id = $1', [req.params.id]);
     return res.json({ data: { deleted: true } });
   } catch (err) {

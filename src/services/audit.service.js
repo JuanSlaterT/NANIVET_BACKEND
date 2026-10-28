@@ -1,29 +1,10 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
+const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
 
 /**
  * Loguea una acción en la tabla auditoria
  */
 async function log(usuario, rol, accion, entidad, entidadId, valoresAnteriores, valoresNuevos, diffCampos, ipAddress, userAgent) {
-  const pool = getPool();
   const id = `aud_${Date.now().toString(36)}`;
 
   await pool.query(

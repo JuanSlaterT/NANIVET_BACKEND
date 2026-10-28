@@ -1,22 +1,4 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
+const pool = require('../config/pool');
 
 /**
  * Obtiene los slots ocupados de un veterinario en un día
@@ -26,7 +8,7 @@ function getPool() {
  * @returns {Promise<Array>} Array de horas ocupadas
  */
 async function getOcupados(veterinarioId, fecha) {
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     // 1. Verificar si el día está bloqueado
     const bloqueoRes = await client.query(
@@ -75,7 +57,7 @@ async function getDisponibles(veterinarioId, fecha, intervaloMinutos = 30) {
   const ocupados = await getOcupados(veterinarioId, fecha);
 
   // Obtener horario del veterinario
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     const vetRes = await client.query(
       'SELECT horario_inicio, horario_fin, dias_semana FROM veterinarios WHERE id = $1',

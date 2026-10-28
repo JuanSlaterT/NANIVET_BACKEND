@@ -1,22 +1,4 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
+const pool = require('../config/pool');
 
 /**
  * GET /api/catalogo/desparasitacion

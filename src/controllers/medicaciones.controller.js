@@ -1,22 +1,4 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
+const pool = require('../config/pool');
 
 /**
  * Genera todas las tomas basándose en horasProgramadas y rango de fechas.
@@ -84,7 +66,7 @@ function generarTomasAutomaticas(medicacion, tomasDB) {
 async function listar(req, res) {
   try {
     const { hospitalizacionId, mascotaId } = req.query;
-    const db = getPool();
+    const db = pool;
 
     // Primera consulta: obtener medicaciones sin tomas
     let query = `
@@ -168,7 +150,7 @@ async function listar(req, res) {
  */
 async function listarMedicaciones(req, res) {
   try {
-    const db = getPool();
+    const db = pool;
     const result = await db.query(
       'SELECT * FROM medicaciones_hospitalizacion WHERE hospitalizacion_id = $1 ORDER BY fecha_inicio',
       [req.params.id]
@@ -216,7 +198,7 @@ async function crearMedicacion(req, res) {
   try {
     const { medicamento, dosis, via, frecuencia, horas_programadas, fecha_inicio, fecha_fin } = req.body;
     const id = `med_${Date.now().toString().slice(-6)}`;
-    const db = getPool();
+    const db = pool;
 
     const result = await db.query(
       `INSERT INTO medicaciones_hospitalizacion (id, hospitalizacion_id, medicamento, dosis, via, frecuencia, horas_programadas, fecha_inicio, fecha_fin, fecha_creacion)
@@ -256,7 +238,7 @@ async function actualizar(req, res) {
     fields.push(`fecha_actualizacion = NOW()`);
     const query = `UPDATE medicaciones_hospitalizacion SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     values.push(req.params.id);
-    const db = getPool();
+    const db = pool;
 
     const result = await db.query(query, values);
     if (result.rows.length === 0) {
@@ -276,7 +258,7 @@ async function registrarToma(req, res) {
   try {
     const { fecha, hora, administrada, horaReal, usuario } = req.body;
     const { id } = req.params;
-    const db = getPool();
+    const db = pool;
 
     // Verificar si ya existe una toma con la misma fecha y hora
     const existing = await db.query(
@@ -317,7 +299,7 @@ async function administrarToma(req, res) {
   try {
     const { horaReal } = req.body;
     const { medId, tomaId } = req.params;
-    const db = getPool();
+    const db = pool;
 
     const result = await db.query(
       `UPDATE tomas_medicacion SET administrada = true, hora_real = $1, usuario_administro = $2

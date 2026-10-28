@@ -1,22 +1,4 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: 0,
-      max: 2
-    });
-  }
-  return pool;
-}
+const pool = require('../config/pool');
 
 /**
  * Genera un ID único con formato "prefix_NNN" (ej: "cli_001", "mas_002")
@@ -26,7 +8,7 @@ function getPool() {
  * @returns {Promise<string>} ID generado
  */
 async function genId(prefix, length = 3) {
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     // Usar secuencia de PostgreSQL para IDs únicos
     await client.query('BEGIN');
@@ -41,7 +23,7 @@ async function genId(prefix, length = 3) {
     } catch (seqErr) {
       // Si la secuencia no existe, crearla y usarla
       await client.query('ROLLBACK');
-      const p = getPool();
+      const p = pool;
       await p.query(`
         CREATE SEQUENCE IF NOT EXISTS seq_${prefix} START 1;
       `);

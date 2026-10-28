@@ -1,24 +1,6 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
+const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
 const { validatePhone, validateCedula, validateEmail } = require('../utils/validators');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
 
 /**
  * GET /api/clientes

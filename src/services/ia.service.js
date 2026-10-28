@@ -1,23 +1,5 @@
-const { Pool } = require('pg');
-const dbConfig = require('../config/db');
+const pool = require('../config/pool');
 const { nowEcuador } = require('../utils/dates');
-
-let pool;
-
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      host: dbConfig.DB_HOST,
-      port: dbConfig.DB_PORT,
-      database: dbConfig.DB_NAME,
-      user: dbConfig.DB_USER,
-      password: dbConfig.DB_PASSWORD,
-      min: dbConfig.DB_POOL_MIN,
-      max: dbConfig.DB_POOL_MAX
-    });
-  }
-  return pool;
-}
 
 /**
  * Mock de IA para resumir historia clínica
@@ -28,7 +10,7 @@ async function resumirHistoria(mascotaId) {
   // Simular delay de IA
   await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     // Obtener datos de la mascota
     const mascotaRes = await client.query(`
