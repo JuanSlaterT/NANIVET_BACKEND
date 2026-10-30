@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "test": "node --test test/*.test.js",
     "migrate": "node scripts/run-migrations.js",
     "seed": "node scripts/run-seed.js",
     "migrate:down": "node scripts/run-migrations.js down",

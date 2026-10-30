@@ -17,7 +17,7 @@ Backend completo para la aplicación **NANIVET** — una plataforma de gestión 
 - **Puntuaciones de citas** — sistema de calificación pública (1-5 estrellas, recomienda/no recomienda) con estadísticas por veterinario
 - **Campañas de recordatorios** (vacunas vencidas, desparasitación, cumpleaños)
 - **Auditoría completa** de todas las operaciones CRUD con diff de campos
-- **Asistencia IA** (mock) para resumen de historias, conversión a SOAP, diagnósticos diferenciales
+- **Asistencia IA** conectada a un proveedor compatible con OpenAI Chat Completions para resumen de historias, conversión a SOAP y diagnósticos diferenciales
 - **Peso en citas** — registro de peso automático vinculado a la línea de tiempo de la mascota
 
 ### Características principales
@@ -120,7 +120,8 @@ backend/
 │   │   ├── whatsapp.service.js     # Generación de enlaces wa.me
 │   │   ├── campana.service.js      # Cálculo de segmentos de campañas
 │   │   ├── availability.service.js # Cálculo de slots disponibles
-│   │   └── ia.service.js           # IA mock (respuestas simuladas)
+│   │   ├── ia-client.service.js    # Cliente del proveedor de IA
+│   │   └── ia.service.js           # Prompts y respuestas de IA veterinaria
 │   └── utils/
 │       ├── dates.js                # Utilidades de fecha (America/Guayaquil)
 │       ├── genId.js                # Genera IDs tipo "cli_001", "mas_001"
@@ -259,7 +260,19 @@ TIMEZONE=America/Guayaquil
 # WHATSAPP (opcional)
 # ═══════════════════════════════════════════
 WHATSAPP_API_KEY=
+
+# ═══════════════════════════════════════════
+# PROVEEDOR DE IA (OpenAI Chat Completions compatible)
+# ═══════════════════════════════════════════
+AI_API_URL=https://tu-servidor.example/v1/chat/completions
+AI_API_KEY=guardar_como_secreto
+AI_MODEL=qwen36
+AI_MAX_TOKENS=2048
+AI_TEMPERATURE=0.6
+AI_TIMEOUT_MS=120000
 ```
+
+`AI_API_KEY` es un secreto: debe existir solo en `.env` durante desarrollo y en el gestor de secretos del servicio de despliegue en producción. No debe enviarse al frontend ni guardarse en Git. La URL, el modelo y los parámetros de generación son configuración no secreta, aunque también se leen como variables de entorno para poder cambiarlos sin desplegar código nuevo.
 
 ### 4. Ejecutar migraciones y seed
 
@@ -1488,7 +1501,7 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 
 ---
 
-### 2.20 IA Veterinaria (Mock)
+### 2.20 IA Veterinaria
 
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
@@ -1497,7 +1510,44 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 | POST | `/api/ia/redactar-mensaje` | admin/vet | Redactar mensaje para dueño |
 | POST | `/api/ia/diferenciales` | admin/vet | Diagnósticos diferenciales |
 
-Todos devuelven respuestas simuladas con delay de 1-2 segundos. Siempre incluyen el disclaimer:
+Los endpoints llaman desde el backend al proveedor configurado en `AI_API_URL`. El token JWT de NANIVET que recibe cada endpoint es distinto de `AI_API_KEY`: la clave del proveedor nunca se expone al cliente.
+
+**Ejemplo de petición al backend:**
+
+```bash
+curl --location 'http://localhost:3001/api/ia/notas-a-soap' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer <JWT_DE_NANIVET>' \
+  --data '{
+    "mascotaId": "mas_001",
+    "notasLibres": "El dueño reporta vómito desde ayer. Temperatura 39.2 °C, mucosas rosadas y dolor abdominal leve."
+  }'
+```
+
+**Ejemplo de respuesta `200 OK`:**
+
+```json
+{
+  "data": {
+    "mascotaId": "mas_001",
+    "soap": {
+      "subjetivo": "El responsable reporta vómito desde ayer.",
+      "objetivo": "Temperatura de 39.2 °C, mucosas rosadas y dolor abdominal leve.",
+      "analisis": "Cuadro gastrointestinal agudo; se requiere correlación con examen clínico y pruebas complementarias.",
+      "plan": "Completar examen físico, valorar hidratación y considerar pruebas complementarias según los hallazgos."
+    },
+    "disclaimer": "Sugerencia generada por IA como apoyo. No reemplaza el criterio clínico del veterinario."
+  }
+}
+```
+
+La respuesta exacta puede variar porque es generada por el modelo. Los cuerpos esperados por los otros endpoints son:
+
+- `resumir-historia`: `{ "mascotaId": "mas_001" }`
+- `redactar-mensaje`: `{ "tipo": "seguimiento", "mascotaNombre": "Luna", "duenoNombre": "Ana", "detalles": "Control en 7 días" }`
+- `diferenciales`: un objeto con los datos clínicos disponibles, por ejemplo `{ "especie": "Canino", "edad": 5, "signos": ["vómito", "dolor abdominal"] }`
+
+Siempre incluyen el disclaimer:
 > *"Sugerencia generada por IA como apoyo. No reemplaza el criterio clínico del veterinario."*
 
 ---
@@ -1766,7 +1816,7 @@ Estos endpoints se usan directamente desde el frontend sin necesidad de token:
 
 8. **Seed data:** Los scripts son re-runnable con `ON CONFLICT DO NOTHING` o `ON CONFLICT DO UPDATE`.
 
-9. **IA Mock:** Las respuestas son realistas basadas en datos de la mascota, siempre con el disclaimer clínico.
+9. **IA:** Las solicitudes se procesan con el proveedor configurado, siempre con el disclaimer clínico. No se envían datos del dueño al resumir historias.
 
 ---
 
@@ -1864,7 +1914,7 @@ Endpoints CRUD estándar con filtros por `mascotaId` y `casoId`.
 | GET | `/api/campanas/segmentos` | admin/vet/rec | Segmentos calculados |
 | GET | `/api/campanas/envios` | admin/vet/rec | Listar envíos |
 
-### IA Veterinaria (Mock)
+### IA Veterinaria
 
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
