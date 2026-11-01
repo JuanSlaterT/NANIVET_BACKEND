@@ -43,6 +43,7 @@ app.use('/api/tratamientos', require('./routes/tratamientos.routes'));
 app.use('/api/desparasitaciones', require('./routes/desparasitaciones.routes'));
 app.use('/api/cirugias', require('./routes/cirugias.routes'));
 app.use('/api/examenes', require('./routes/examenes.routes'));
+app.use('/api/media', require('./routes/media.routes'));
 app.use('/api/hospitalizaciones', require('./routes/hospitalizaciones.routes'));
 app.use('/api/medicaciones', require('./routes/medicaciones.routes'));
 app.use('/api/evoluciones', require('./routes/evoluciones.routes'));

@@ -1,6 +1,14 @@
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
 const { sanitizePetForRole } = require('../middleware/clinical-access.middleware');
+const { resolveStoredMediaUrl, deleteStoredMedia } = require('../services/storage.service');
+const { errorEvent } = require('../services/security-events.service');
+
+async function withProfileImage(row, role) {
+  if (!row) return row;
+  const data = { ...row, foto_url: await resolveStoredMediaUrl(row.foto_url) };
+  return sanitizePetForRole(data, role);
+}
 
 /**
  * GET /api/mascotas
@@ -30,7 +38,7 @@ async function listar(req, res) {
 
     query += ' ORDER BY m.nombre';
     const result = await pool.query(query, params);
-    return res.json({ data: result.rows.map(row => sanitizePetForRole(row, req.user?.rol)) });
+    return res.json({ data: await Promise.all(result.rows.map(row => withProfileImage(row, req.user?.rol))) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -53,7 +61,7 @@ async function obtener(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mascota no encontrada' } });
     }
-    return res.json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
+    return res.json({ data: await withProfileImage(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -84,7 +92,7 @@ async function crear(req, res) {
       [id, idCliente, nombre, especie, sexo, fecha_nacimiento || null, raza || null, color || null,
        foto_url || null, esterilizado || false, microchip || null, alergias || null, notas || null]
     );
-    return res.status(201).json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
+    return res.status(201).json({ data: await withProfileImage(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -112,7 +120,7 @@ async function actualizar(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mascota no encontrada' } });
     }
-    return res.json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
+    return res.json({ data: await withProfileImage(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -125,6 +133,12 @@ async function actualizar(req, res) {
 async function eliminar(req, res) {
   try {
     const mascotaId = req.params.id;
+    const media = await pool.query(
+      `SELECT foto_url AS media_ref FROM mascotas WHERE id = $1
+       UNION ALL
+       SELECT archivo_url AS media_ref FROM examenes_adjuntos WHERE mascota_id = $1`,
+      [mascotaId],
+    );
 
     // Orden importa: primero hijas con CASCADE, luego las que tienen RESTRICT
     // hospitalizaciones → (medicaciones → tomas, evoluciones) [CASCADE automático]
@@ -163,6 +177,15 @@ async function eliminar(req, res) {
     // Finalmente eliminar la mascota
     await pool.query('DELETE FROM mascotas WHERE id = $1', [mascotaId]);
 
+    // La base de datos es la fuente de verdad. Después de eliminar sus filas,
+    // se limpian en segundo plano los objetos privados que pertenecían al paciente.
+    const cleanup = await Promise.allSettled(
+      media.rows.map(row => deleteStoredMedia(row.media_ref)),
+    );
+    if (cleanup.some(result => result.status === 'rejected')) {
+      errorEvent(req, 'pet_media_cleanup_failed', new Error('No se pudieron eliminar todos los objetos'), { mascotaId });
+    }
+
     return res.json({ data: { deleted: true } });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
@@ -184,7 +207,7 @@ async function buscar(req, res) {
        ORDER BY m.nombre LIMIT 20`,
       [`%${q}%`]
     );
-    return res.json({ data: result.rows.map(row => sanitizePetForRole(row, req.user?.rol)) });
+    return res.json({ data: await Promise.all(result.rows.map(row => withProfileImage(row, req.user?.rol))) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }

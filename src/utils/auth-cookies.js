@@ -14,10 +14,13 @@ function parseCookies(header = '') {
 
 function cookieOptions(maxAge, path) {
   const production = process.env.NODE_ENV === 'production';
+  // Frontend y API se despliegan en dominios distintos. En producción la
+  // cookie necesita SameSite=None para viajar en fetch(..., credentials).
+  const sameSite = (process.env.COOKIE_SAME_SITE || (production ? 'none' : 'lax')).toLowerCase();
   return {
     httpOnly: true,
-    secure: production || process.env.COOKIE_SECURE === 'true',
-    sameSite: process.env.COOKIE_SAME_SITE || 'strict',
+    secure: sameSite === 'none' || production || process.env.COOKIE_SECURE === 'true',
+    sameSite,
     maxAge,
     path,
   };

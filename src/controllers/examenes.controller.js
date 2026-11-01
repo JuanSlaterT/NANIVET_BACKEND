@@ -1,5 +1,11 @@
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
+const { resolveStoredMediaUrl, deleteStoredMedia } = require('../services/storage.service');
+const { errorEvent } = require('../services/security-events.service');
+
+async function withMediaUrl(row) {
+  return { ...row, archivo_url: await resolveStoredMediaUrl(row.archivo_url) };
+}
 
 /**
  * GET /api/examenes
@@ -30,7 +36,7 @@ async function listar(req, res) {
 
     query += ' ORDER BY e.fecha DESC';
     const result = await pool.query(query, params);
-    return res.json({ data: result.rows });
+    return res.json({ data: await Promise.all(result.rows.map(withMediaUrl)) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -52,7 +58,7 @@ async function crear(req, res) {
        RETURNING *`,
       [id, mascotaId, casoId || null, tipo, titulo || null, descripcion || null, fecha, archivo_url || null, veterinarioId || null]
     );
-    return res.status(201).json({ data: result.rows[0] });
+    return res.status(201).json({ data: await withMediaUrl(result.rows[0]) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -64,7 +70,13 @@ async function crear(req, res) {
  */
 async function eliminar(req, res) {
   try {
+    const existing = await pool.query('SELECT archivo_url FROM examenes_adjuntos WHERE id = $1', [req.params.id]);
     await pool.query('DELETE FROM examenes_adjuntos WHERE id = $1', [req.params.id]);
+    if (existing.rows[0]?.archivo_url) {
+      await deleteStoredMedia(existing.rows[0].archivo_url).catch(error => {
+        errorEvent(req, 'exam_media_delete_failed', error, { examenId: req.params.id });
+      });
+    }
     return res.json({ data: { deleted: true } });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });

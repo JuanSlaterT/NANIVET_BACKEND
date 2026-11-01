@@ -36,7 +36,7 @@ function validatePhone(telefono) {
 
 /**
  * Valida formato de cédula ecuatoriana
- * - Personas naturales: 10 dígitos, último dígito verificador
+ * - Personas naturales: 10 dígitos (sin comprobación de dígito verificador)
  * - Personas jurídicas: 13 dígitos, termina en 00
  * - Especial: 9 dígitos (extranjeros)
  * @param {string} cedula - Cédula a validar
@@ -74,28 +74,6 @@ function validateCedula(cedula) {
   const tercerDigito = parseInt(clean.substring(2, 3), 10);
   if (tercerDigito > 5) {
     return { valid: false, message: 'Cédula inválida' };
-  }
-
-  // Algoritmo de validación dígito verificador (último dígito)
-  let suma = 0;
-  for (let i = 0; i < 9; i++) {
-    let digito = parseInt(clean.substring(i, i + 1), 10);
-    let multiplicador = i % 2 === 0 ? 2 : 1;
-    
-    if (multiplicador === 2 && digito > 4) {
-      digito = digito * 2 - 9;
-    } else if (multiplicador === 2) {
-      digito = digito * 2;
-    }
-    
-    suma += digito;
-  }
-  
-  const verificador = (10 - (suma % 10)) % 10;
-  const cedulaVerificador = parseInt(clean.substring(9, 10), 10);
-
-  if (verificador !== cedulaVerificador) {
-    return { valid: false, message: 'Cédula inválida - dígito verificador no coincide' };
   }
 
   return { valid: true };

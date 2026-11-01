@@ -1822,6 +1822,22 @@ Estos endpoints se usan directamente desde el frontend sin necesidad de token:
 
 ---
 
+## Supabase Storage (S3 compatible)
+
+Las fotos de perfil y las radiografías se guardan en un bucket privado de Supabase Storage. El backend crea el bucket configurado por `S3_BUCKET` si todavía no existe y usa dos prefijos virtuales:
+
+- `mascotas/perfiles/`
+- `mascotas/radiografias/`
+
+Configura `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` y, opcionalmente, `S3_SIGNED_URL_TTL_SECONDS` en el entorno del backend. Las claves no deben enviarse al frontend ni guardarse en Git.
+
+| Método | Endpoint | Roles | Cuerpo |
+|--------|----------|-------|--------|
+| POST | `/api/media/mascotas/:id/perfil` | admin, veterinario, recepcionista | `multipart/form-data`: `imagen` |
+| POST | `/api/media/mascotas/:id/radiografias` | admin, veterinario | `multipart/form-data`: `imagen`, `fecha`, `descripcion`, `titulo?`, `casoId?` |
+
+Las imágenes admitidas son JPG, PNG, WebP, GIF, AVIF, HEIC y HEIF, con un máximo de 12 MB. Las respuestas de lectura contienen URLs firmadas temporales; al eliminar una radiografía también se elimina su objeto del storage.
+
 ## 📄 Licencia
 
 MIT
