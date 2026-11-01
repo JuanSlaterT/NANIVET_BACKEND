@@ -4,7 +4,7 @@ const { errorEvent } = require('../services/security-events.service');
 const auditService = require('../services/audit.service');
 
 const mascotaParamsSchema = z.object({
-  mascotaId: z.string().trim().min(1).max(128),
+  mascotaId: z.string().trim().uuid(),
 });
 
 const referralExportSchema = z.object({
@@ -109,43 +109,43 @@ async function historialMascota(req, res) {
            valores_nuevos ->> 'mascotaId',
            valores_anteriores ->> 'mascota_id',
            valores_anteriores ->> 'mascotaId'
-         ) = $1
+         ) = $1::uuid::text
        ),
        related_entities AS (
-         SELECT 'Mascota'::text AS entidad, $1::text AS entidad_id
-         UNION SELECT 'Cita', id::text FROM citas WHERE mascota_id = $1
-         UNION SELECT 'CasoClinico', id::text FROM casos_clinicos WHERE mascota_id = $1
-         UNION SELECT 'Vacuna', id::text FROM vacunas WHERE mascota_id = $1
-         UNION SELECT 'Tratamiento', id::text FROM tratamientos WHERE mascota_id = $1
-         UNION SELECT 'Desparasitacion', id::text FROM desparasitaciones WHERE mascota_id = $1
-         UNION SELECT 'Cirugia', id::text FROM cirugias WHERE mascota_id = $1
-         UNION SELECT 'Examen', id::text FROM examenes_adjuntos WHERE mascota_id = $1
-         UNION SELECT 'Peso', id::text FROM registros_peso WHERE mascota_id = $1
-         UNION SELECT 'Hospitalizacion', id::text FROM hospitalizaciones WHERE mascota_id = $1
-         UNION SELECT 'Puntuacion', id::text FROM puntuaciones WHERE mascota_id = $1
-         UNION SELECT 'Campana', segmento::text FROM campana_envios WHERE mascota_id = $1
-         UNION SELECT 'CampanaEnvio', id::text FROM campana_envios WHERE mascota_id = $1
+         SELECT 'Mascota'::text AS entidad, $1::uuid::text AS entidad_id
+         UNION SELECT 'Cita', id::text FROM citas WHERE mascota_id = $1::uuid
+         UNION SELECT 'CasoClinico', id::text FROM casos_clinicos WHERE mascota_id = $1::uuid
+         UNION SELECT 'Vacuna', id::text FROM vacunas WHERE mascota_id = $1::uuid
+         UNION SELECT 'Tratamiento', id::text FROM tratamientos WHERE mascota_id = $1::uuid
+         UNION SELECT 'Desparasitacion', id::text FROM desparasitaciones WHERE mascota_id = $1::uuid
+         UNION SELECT 'Cirugia', id::text FROM cirugias WHERE mascota_id = $1::uuid
+         UNION SELECT 'Examen', id::text FROM examenes_adjuntos WHERE mascota_id = $1::uuid
+         UNION SELECT 'Peso', id::text FROM registros_peso WHERE mascota_id = $1::uuid
+         UNION SELECT 'Hospitalizacion', id::text FROM hospitalizaciones WHERE mascota_id = $1::uuid
+         UNION SELECT 'Puntuacion', id::text FROM puntuaciones WHERE mascota_id = $1::uuid
+         UNION SELECT 'Campana', segmento::text FROM campana_envios WHERE mascota_id = $1::uuid
+         UNION SELECT 'CampanaEnvio', id::text FROM campana_envios WHERE mascota_id = $1::uuid
          UNION
            SELECT 'Medicacion', m.id::text
            FROM medicaciones_hospitalizacion m
            JOIN hospitalizaciones h ON h.id = m.hospitalizacion_id
-           WHERE h.mascota_id = $1
+           WHERE h.mascota_id = $1::uuid
          UNION
            SELECT 'Evolucion', e.id::text
            FROM evoluciones_hospitalizacion e
            JOIN hospitalizaciones h ON h.id = e.hospitalizacion_id
-           WHERE h.mascota_id = $1
+           WHERE h.mascota_id = $1::uuid
          UNION
            SELECT 'TomaMedicacion', t.id::text
            FROM tomas_medicacion t
            JOIN medicaciones_hospitalizacion m ON m.id = t.medicacion_id
            JOIN hospitalizaciones h ON h.id = m.hospitalizacion_id
-           WHERE h.mascota_id = $1
+           WHERE h.mascota_id = $1::uuid
          UNION
            SELECT 'TomaMedicacion', m.id::text
            FROM medicaciones_hospitalizacion m
            JOIN hospitalizaciones h ON h.id = m.hospitalizacion_id
-           WHERE h.mascota_id = $1
+           WHERE h.mascota_id = $1::uuid
          UNION SELECT entidad, entidad_id::text FROM audit_relations
        )
        SELECT a.*
