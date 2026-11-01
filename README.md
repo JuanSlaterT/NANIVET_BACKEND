@@ -1479,6 +1479,8 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 |--------|----------|------|-------------|
 | GET | `/api/auditoria` | admin | Listar (filtros: `usuario`, `accion`, `entidad`, `desde`, `hasta`, `pagina`) |
 | GET | `/api/auditoria/entidad/:entidad/:entidadId` | admin | Historial de una entidad |
+| GET | `/api/auditoria/mascota/:mascotaId` | admin/vet | Historial completo de la mascota y todos sus registros relacionados |
+| POST | `/api/auditoria/mascota/:mascotaId/exportacion` | admin/vet | Registra la exportación anonimizada de una referencia PDF |
 
 ---
 

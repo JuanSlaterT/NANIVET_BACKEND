@@ -17,7 +17,11 @@ function auditMiddleware(entidad, accion) {
       const originalJson = res.json;
       res.json = function (data) {
         // Loguear en auditoría después de la operación
-        const newValues = (accion === 'crear' || accion === 'editar') ? req.body : null;
+        const auditContext = req.auditContext || null;
+        const shouldCaptureNewValues = accion === 'crear' || accion === 'editar' || auditContext;
+        const newValues = shouldCaptureNewValues
+          ? { ...(req.body || {}), ...(auditContext || {}) }
+          : null;
 
         // Extraer ID de la entidad:优先 usar req.entityId (set por controllers al crear),
         // luego params, luego response data
