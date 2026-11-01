@@ -5,6 +5,7 @@ const { authMiddleware, refreshAuthMiddleware } = require('../middleware/auth.mi
 
 router.post('/login', authController.login);
 router.post('/refresh', refreshAuthMiddleware, authController.refresh);
+router.post('/logout', authController.logout);
 router.get('/me', authMiddleware, authController.getMe);
 
 module.exports = router;

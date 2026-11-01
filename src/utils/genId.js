@@ -1,4 +1,5 @@
 const pool = require('../config/pool');
+const { write } = require('../services/security-events.service');
 
 /**
  * Genera un ID único con formato "prefix_NNN" (ej: "cli_001", "mas_002")
@@ -33,7 +34,7 @@ async function genId(prefix, length = 3) {
     }
   } catch (err) {
     // Fallback a random si hay error de DB
-    console.warn(`genId fallback para ${prefix}: ${err.message}`);
+    write('warn', 'id_generation_fallback', { prefix, errorName: err.name, errorMessage: err.message });
     const num = Math.floor(Math.random() * Math.pow(10, length)).toString().padStart(length, '0');
     return `${prefix}_${num}`;
   }

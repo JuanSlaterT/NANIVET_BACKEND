@@ -3,6 +3,8 @@ const { genToken } = require('../utils/genToken');
 const { nowEcuador, formatISO } = require('../utils/dates');
 const { getOcupados } = require('../services/availability.service');
 const { genUuid } = require('../utils/genUuid');
+const { errorEvent } = require('../services/security-events.service');
+const { sanitizeAppointmentForRole } = require('../middleware/clinical-access.middleware');
 /**
  * GET /api/citas
  * Listar citas con filtros (requiere autenticación)
@@ -40,7 +42,7 @@ async function listar(req, res) {
 
     query += ' ORDER BY ci.fecha_hora DESC';
     const result = await pool.query(query, params);
-    return res.json({ data: result.rows });
+    return res.json({ data: result.rows.map(row => sanitizeAppointmentForRole(row, req.user?.rol)) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -56,7 +58,8 @@ async function obtenerProximasPorVeterinario(req, res) {
 
     const result = await pool.query(
       `
-        SELECT ci.*, mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
+        SELECT ci.id, ci.tipo_servicio, ci.fecha_hora, ci.estado,
+               mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
                v.nombre AS veterinario_nombre
         FROM citas ci
         JOIN mascotas mas ON ci.mascota_id = mas.id
@@ -71,7 +74,7 @@ async function obtenerProximasPorVeterinario(req, res) {
 
     return res.json({ data: result.rows });
   } catch (err) {
-    console.error('Error en obtenerProximasPorVeterinario:', err);
+    errorEvent(req, 'appointment_upcoming_list_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -95,7 +98,7 @@ async function obtener(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } });
     }
-    return res.json({ data: result.rows[0] });
+    return res.json({ data: sanitizeAppointmentForRole(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -108,13 +111,13 @@ async function obtener(req, res) {
 async function obtenerPorToken(req, res) {
   try {
     const result = await pool.query(
-      `SELECT ci.*, mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
-              v.nombre AS veterinario_nombre, cli.nombre AS cliente_nombre, cli.apellido AS cliente_apellido,
-              cli.telefono AS cliente_telefono
+      `SELECT ci.id, ci.mascota_id, ci.veterinario_id, ci.tipo_servicio, ci.fecha_hora, ci.estado, ci.motivo,
+              ci.confirmada_por_cliente, ci.cancelada_por_cliente,
+              mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
+              v.nombre AS veterinario_nombre
        FROM citas ci
        JOIN mascotas mas ON ci.mascota_id = mas.id
        JOIN veterinarios v ON ci.veterinario_id = v.id
-       JOIN clientes cli ON mas.cliente_id = cli.id
        WHERE ci.token = $1`,
       [req.params.token]
     );
@@ -171,7 +174,7 @@ async function crear(req, res) {
           ]
         );
       } catch (hospitalErr) {
-        console.error('Error creando hospitalización automática:', hospitalErr);
+        errorEvent(req, 'automatic_hospitalization_failed', hospitalErr, { appointmentId: id });
       }
     }
 
@@ -187,7 +190,7 @@ async function crear(req, res) {
             [pesoId, mascotaId, peso_cita, fecha]
           );
         } catch (pesoErr) {
-          console.error('Error registrando peso automático:', pesoErr);
+          errorEvent(req, 'automatic_weight_failed', pesoErr, { appointmentId: id });
         }
       }
 
@@ -201,7 +204,7 @@ async function crear(req, res) {
           [pntId, id, pntToken, mascotaId, veterinarioId]
         );
       } catch (pntErr) {
-        console.error('Error creando puntuación pendiente:', pntErr);
+        errorEvent(req, 'automatic_rating_failed', pntErr, { appointmentId: id });
       }
 
       // Auto-crear vacuna si es tipo 'vacunacion'
@@ -218,7 +221,7 @@ async function crear(req, res) {
             [vacId, mascotaId, nombreVacuna, `AUTO-${fecha.replace(/-/g, '')}`, fecha, proximaDosis.toISOString().split('T')[0], veterinarioId]
           );
         } catch (vacErr) {
-          console.error('Error creando vacuna automática:', vacErr);
+          errorEvent(req, 'automatic_vaccine_failed', vacErr, { appointmentId: id });
         }
       }
 
@@ -236,14 +239,14 @@ async function crear(req, res) {
             [desId, mascotaId, producto, 'Según protocolo', fecha, proximaDes.toISOString().split('T')[0], veterinarioId]
           );
         } catch (desErr) {
-          console.error('Error creando desparasitación automática:', desErr);
+          errorEvent(req, 'automatic_deworming_failed', desErr, { appointmentId: id });
         }
       }
     }
 
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {
-    console.log(err)
+    errorEvent(req, 'appointment_create_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -290,7 +293,7 @@ async function actualizar(req, res) {
             [pesoId, updatedCita.mascota_id, peso_cita, fecha]
           );
         } catch (pesoErr) {
-          console.error('Error registrando peso automático:', pesoErr);
+          errorEvent(req, 'automatic_weight_failed', pesoErr, { appointmentId: req.params.id });
         }
       }
 
@@ -304,7 +307,7 @@ async function actualizar(req, res) {
           [pntId, req.params.id, pntToken, updatedCita.mascota_id, updatedCita.veterinario_id]
         );
       } catch (pntErr) {
-        console.error('Error creando puntuación pendiente:', pntErr);
+        errorEvent(req, 'automatic_rating_failed', pntErr, { appointmentId: req.params.id });
       }
 
       // Auto-crear vacuna si es tipo 'vacunacion'
@@ -321,7 +324,7 @@ async function actualizar(req, res) {
             [vacId, updatedCita.mascota_id, nombreVacuna, `AUTO-${fecha.replace(/-/g, '')}`, fecha, proximaDosis.toISOString().split('T')[0], updatedCita.veterinario_id]
           );
         } catch (vacErr) {
-          console.error('Error creando vacuna automática:', vacErr);
+          errorEvent(req, 'automatic_vaccine_failed', vacErr, { appointmentId: req.params.id });
         }
       }
 
@@ -339,7 +342,7 @@ async function actualizar(req, res) {
             [desId, updatedCita.mascota_id, producto, 'Según protocolo', fecha, proximaDes.toISOString().split('T')[0], updatedCita.veterinario_id]
           );
         } catch (desErr) {
-          console.error('Error creando desparasitación automática:', desErr);
+          errorEvent(req, 'automatic_deworming_failed', desErr, { appointmentId: req.params.id });
         }
       }
 
@@ -358,7 +361,7 @@ async function actualizar(req, res) {
             ]
           );
         } catch (hospitalErr) {
-          console.error('Error creando hospitalización automática (actualizar):', hospitalErr);
+          errorEvent(req, 'automatic_hospitalization_failed', hospitalErr, { appointmentId: req.params.id });
         }
       }
     }
@@ -392,7 +395,9 @@ async function confirmarPorToken(req, res) {
     const result = await pool.query(
       `UPDATE citas SET estado = 'confirmada', fecha_confirmacion = $1,
        ultimo_cambio_por = 'cliente', confirmada_por_cliente = true, fecha_actualizacion = NOW()
-       WHERE token = $2 RETURNING *`,
+       WHERE token = $2
+       RETURNING id, mascota_id, veterinario_id, tipo_servicio, fecha_hora, estado, motivo,
+                 confirmada_por_cliente, cancelada_por_cliente`,
       [ahora, req.params.token]
     );
     if (result.rows.length === 0) {
@@ -427,7 +432,9 @@ async function cancelarPorToken(req, res) {
     const result = await pool.query(
       `UPDATE citas SET estado = 'cancelada', motivo_cancelacion = $1,
        ultimo_cambio_por = 'cliente', cancelada_por_cliente = true, fecha_actualizacion = NOW()
-       WHERE token = $2 RETURNING *`,
+       WHERE token = $2
+       RETURNING id, mascota_id, veterinario_id, tipo_servicio, fecha_hora, estado, motivo,
+                 motivo_cancelacion, confirmada_por_cliente, cancelada_por_cliente`,
       [motivo || 'Cancelada por el cliente', req.params.token]
     );
     return res.json({ data: result.rows[0] });
@@ -442,7 +449,7 @@ async function cancelarPorToken(req, res) {
  */
 async function reprogramarPorToken(req, res) {
   try {
-    const { fecha_hora } = req.body;
+    const fechaHora = req.body.fecha_hora || req.body.nueva_fecha_hora || req.body.nuevaFechaHora;
     const cita = await pool.query('SELECT * FROM citas WHERE token = $1', [req.params.token]);
     if (cita.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } });
@@ -459,8 +466,10 @@ async function reprogramarPorToken(req, res) {
     const result = await pool.query(
       `UPDATE citas SET fecha_hora = $1, estado = 'pendiente',
        ultimo_cambio_por = 'cliente', fecha_actualizacion = NOW()
-       WHERE token = $2 RETURNING *`,
-      [fecha_hora, req.params.token]
+       WHERE token = $2
+       RETURNING id, mascota_id, veterinario_id, tipo_servicio, fecha_hora, estado, motivo,
+                 confirmada_por_cliente, cancelada_por_cliente`,
+      [fechaHora, req.params.token]
     );
     return res.json({ data: result.rows[0] });
   } catch (err) {

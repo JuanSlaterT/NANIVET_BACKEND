@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/pool');
 const dotenv = require('dotenv');
+const { setAuthCookies, clearAuthCookies, refreshTokenFrom } = require('../utils/auth-cookies');
+const { securityEvent, errorEvent } = require('../services/security-events.service');
 dotenv.config();
 
 /**
@@ -24,6 +26,7 @@ async function login(req, res) {
     );
 
     if (result.rows.length === 0) {
+      securityEvent(req, 'login_failed', { reason: 'unknown_user', email });
       return res.status(401).json({
         error: { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' }
       });
@@ -33,6 +36,7 @@ async function login(req, res) {
     const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
+      securityEvent(req, 'login_failed', { reason: 'invalid_password', email });
       return res.status(401).json({
         error: { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' }
       });
@@ -68,7 +72,7 @@ async function login(req, res) {
         veterinario_id: veterinarioId
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 
     const refreshToken = jwt.sign(
@@ -77,10 +81,11 @@ async function login(req, res) {
       { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
     );
 
+    setAuthCookies(res, token, refreshToken);
+    securityEvent(req, 'login_succeeded', { authenticatedUserId: user.id, authenticatedRole: user.rol }, 'info');
+
     return res.json({
       data: {
-        token,
-        refreshToken,
         user: {
           id: user.id,
           nombre: user.nombre,
@@ -93,7 +98,7 @@ async function login(req, res) {
       }
     });
   } catch (err) {
-    console.error('Error en login:', err);
+    securityEvent(req, 'login_error', { errorName: err.name, errorMessage: err.message }, 'error');
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -106,7 +111,7 @@ async function login(req, res) {
  */
 async function refresh(req, res) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = refreshTokenFrom(req);
 
     if (!refreshToken) {
       return res.status(400).json({
@@ -152,12 +157,20 @@ async function refresh(req, res) {
         veterinario_id: veterinarioId
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
+
+    const rotatedRefreshToken = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+
+    setAuthCookies(res, token, rotatedRefreshToken);
+    securityEvent(req, 'session_refreshed', { authenticatedUserId: user.id }, 'info');
 
     return res.json({
       data: {
-        token,
         user: {
           id: user.id,
           nombre: user.nombre,
@@ -170,10 +183,18 @@ async function refresh(req, res) {
       }
     });
   } catch (err) {
+    clearAuthCookies(res);
+    securityEvent(req, 'session_refresh_failed', { reason: err.name });
     return res.status(401).json({
       error: { code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token inválido o expirado' }
     });
   }
+}
+
+function logout(req, res) {
+  clearAuthCookies(res);
+  securityEvent(req, 'logout', {}, 'info');
+  return res.json({ data: { message: 'Sesión cerrada correctamente' } });
 }
 
 /**
@@ -214,11 +235,11 @@ async function getMe(req, res) {
       }
     });
   } catch (err) {
-    console.error('Error en getMe:', err);
+    errorEvent(req, 'auth_me_failed', err);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
   }
 }
 
-module.exports = { login, refresh, getMe };
+module.exports = { login, refresh, logout, getMe };

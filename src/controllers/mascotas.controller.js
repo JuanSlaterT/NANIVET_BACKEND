@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
+const { sanitizePetForRole } = require('../middleware/clinical-access.middleware');
 
 /**
  * GET /api/mascotas
@@ -29,7 +30,7 @@ async function listar(req, res) {
 
     query += ' ORDER BY m.nombre';
     const result = await pool.query(query, params);
-    return res.json({ data: result.rows });
+    return res.json({ data: result.rows.map(row => sanitizePetForRole(row, req.user?.rol)) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -52,7 +53,7 @@ async function obtener(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mascota no encontrada' } });
     }
-    return res.json({ data: result.rows[0] });
+    return res.json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -83,7 +84,7 @@ async function crear(req, res) {
       [id, idCliente, nombre, especie, sexo, fecha_nacimiento || null, raza || null, color || null,
        foto_url || null, esterilizado || false, microchip || null, alergias || null, notas || null]
     );
-    return res.status(201).json({ data: result.rows[0] });
+    return res.status(201).json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -111,7 +112,7 @@ async function actualizar(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mascota no encontrada' } });
     }
-    return res.json({ data: result.rows[0] });
+    return res.json({ data: sanitizePetForRole(result.rows[0], req.user?.rol) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -183,7 +184,7 @@ async function buscar(req, res) {
        ORDER BY m.nombre LIMIT 20`,
       [`%${q}%`]
     );
-    return res.json({ data: result.rows });
+    return res.json({ data: result.rows.map(row => sanitizePetForRole(row, req.user?.rol)) });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }

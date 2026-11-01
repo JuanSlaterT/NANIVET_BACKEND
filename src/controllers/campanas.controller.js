@@ -3,6 +3,7 @@ const { genUuid } = require('../utils/genUuid');
 const campanaService = require('../services/campana.service');
 const { normalizePhone, generateWhatsAppLink } = require('../services/whatsapp.service');
 const { nowEcuador } = require('../utils/dates');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/campanas/segmentos
@@ -13,7 +14,7 @@ async function obtenerSegmentos(req, res) {
     const segmentos = await campanaService.calcularSegmentos();
     return res.json({ data: segmentos });
   } catch (err) {
-    console.error('Error en segmentos:', err);
+    errorEvent(req, 'campaign_segments_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -106,7 +107,7 @@ async function enviarCampana(req, res) {
         resultados.detalles.push({
           clienteId: envio.clienteId,
           estado: 'error',
-          error: envioErr.message
+          error: 'No fue posible registrar este envío'
         });
       }
     }
@@ -131,7 +132,7 @@ async function enviarCampana(req, res) {
       message: `Campaña enviada: ${resultados.exitosos} exitosos, ${resultados.fallidos} fallidos`
     });
   } catch (err) {
-    console.error('Error enviando campaña:', err);
+    errorEvent(req, 'campaign_send_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }

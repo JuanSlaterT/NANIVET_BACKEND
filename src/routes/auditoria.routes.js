@@ -5,6 +5,6 @@ const { authMiddleware } = require('../middleware/auth.middleware');
 const { rolesMiddleware } = require('../middleware/roles.middleware');
 
 router.get('/', authMiddleware, rolesMiddleware(['admin']), auditoriaController.listar);
-router.get('/entidad/:entidad/:entidadId', authMiddleware, rolesMiddleware(['admin']), auditoriaController.historialEntidad);
+router.get('/entidad/:entidad/:entidadId', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditoriaController.historialEntidad);
 
 module.exports = router;

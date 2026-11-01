@@ -1,6 +1,7 @@
 const pool = require('../config/pool');
 const authMiddleware = require('../middleware/auth.middleware');
 const { genUuid } = require('../utils/genUuid');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/veterinarios
@@ -22,7 +23,7 @@ async function listar(req, res) {
     `);
     return res.json({ data: result.rows });
   } catch (err) {
-    console.error('Error en listar veterinarios:', err);
+    errorEvent(req, 'veterinarian_list_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -142,7 +143,7 @@ async function syncWithStaff(req, res) {
 
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {
-    console.error('Error en sync veterinarios:', err);
+    errorEvent(req, 'veterinarian_sync_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }

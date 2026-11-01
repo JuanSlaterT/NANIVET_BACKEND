@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/catalogo/desparasitacion
@@ -21,7 +22,7 @@ async function listar(req, res) {
     const result = await pool.query(query, params);
     return res.json({ data: result.rows });
   } catch (err) {
-    console.error('Error al listar catálogo de desparasitación:', err);
+    errorEvent(req, 'deworming_catalog_list_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -41,7 +42,7 @@ async function obtenerPorId(req, res) {
 
     return res.json({ data: result.rows[0] });
   } catch (err) {
-    console.error('Error al obtener producto de desparasitación:', err);
+    errorEvent(req, 'deworming_catalog_get_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -90,7 +91,7 @@ async function crear(req, res) {
         error: { code: 'DUPLICATE_ERROR', message: 'Ya existe un producto con ese nombre' }
       });
     }
-    console.error('Error al crear producto de desparasitación:', err);
+    errorEvent(req, 'deworming_catalog_create_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -102,7 +103,7 @@ async function crear(req, res) {
 async function actualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nombre, intervaloMeses, via, activa } = req.body;
+    const { nombre, intervalo_meses: intervaloMeses, via, activa } = req.body;
 
     // Verificar que existe
     const existing = await pool.query('SELECT * FROM catalogo_desparasitacion WHERE id = $1', [id]);
@@ -143,7 +144,7 @@ async function actualizar(req, res) {
         error: { code: 'DUPLICATE_ERROR', message: 'Ya existe un producto con ese nombre' }
       });
     }
-    console.error('Error al actualizar producto de desparasitación:', err);
+    errorEvent(req, 'deworming_catalog_update_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -165,7 +166,7 @@ async function eliminar(req, res) {
 
     return res.json({ message: 'Producto de desparasitación eliminado correctamente' });
   } catch (err) {
-    console.error('Error al eliminar producto de desparasitación:', err);
+    errorEvent(req, 'deworming_catalog_delete_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }

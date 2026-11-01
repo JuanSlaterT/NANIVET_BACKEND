@@ -81,9 +81,12 @@ async function crear(req, res) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: phoneValidation.message } });
     }
 
-    const cedulaValidation = validateCedula(cedula);
-    if (!cedulaValidation.valid) {
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: cedulaValidation.message } });
+    const cedulaNormalizada = typeof cedula === 'string' && cedula.trim() ? cedula.trim() : null;
+    if (cedulaNormalizada) {
+      const cedulaValidation = validateCedula(cedulaNormalizada);
+      if (!cedulaValidation.valid) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: cedulaValidation.message } });
+      }
     }
 
     const emailValidation = validateEmail(email);
@@ -105,7 +108,7 @@ async function crear(req, res) {
        consentimiento_comunicaciones, consentimiento_comunicaciones_fecha, fecha_creacion, fecha_actualizacion)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
-      [id, nombre, apellido, telefono, cedula, email || null, direccion || null,
+      [id, nombre, apellido, telefono, cedulaNormalizada, email || null, direccion || null,
        datosAceptado, ahora, versionAviso || 'v1.0', comunicacionesAceptado || false,
        comunicacionesAceptado ? ahora : null, ahora, ahora]
     );
@@ -125,19 +128,31 @@ async function crear(req, res) {
  */
 async function actualizar(req, res) {
   try {
-    const { nombre, apellido, telefono, email, direccion } = req.body;
+    const { nombre, apellido, telefono, cedula, email, direccion } = req.body;
+    const cedulaNormalizada = cedula === undefined
+      ? undefined
+      : (typeof cedula === 'string' && cedula.trim() ? cedula.trim() : null);
+    if (cedulaNormalizada) {
+      const cedulaValidation = validateCedula(cedulaNormalizada);
+      if (!cedulaValidation.valid) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: cedulaValidation.message } });
+      }
+    }
     const result = await pool.query(
       `UPDATE clientes SET nombre = COALESCE($1, nombre), apellido = COALESCE($2, apellido),
-       telefono = COALESCE($3, telefono), email = COALESCE($4, email),
-       direccion = COALESCE($5, direccion), fecha_actualizacion = NOW()
-       WHERE id = $6 RETURNING *`,
-      [nombre, apellido, telefono, email, direccion, req.params.id]
+       telefono = COALESCE($3, telefono), cedula = CASE WHEN $4::boolean THEN $5 ELSE cedula END,
+       email = COALESCE($6, email), direccion = COALESCE($7, direccion), fecha_actualizacion = NOW()
+       WHERE id = $8 RETURNING *`,
+      [nombre, apellido, telefono, cedula !== undefined, cedulaNormalizada ?? null, email, direccion, req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } });
     }
     return res.json({ data: result.rows[0] });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: { code: 'DUPLICATE', message: 'Ya existe un cliente con esa cédula' } });
+    }
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }

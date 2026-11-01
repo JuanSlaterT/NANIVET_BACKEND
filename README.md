@@ -151,7 +151,8 @@ backend/
 │   ├── 021_create_plantillas.sql
 │   ├── 022_create_puntuaciones.sql
 │   ├── 024_create_catalogo_vacunas.sql
-│   └── 025_create_catalogo_desparasitacion.sql
+│   ├── 025_create_catalogo_desparasitacion.sql
+│   └── 026_make_cliente_cedula_optional.sql
 ├── seed/                           # Scripts SQL de datos de prueba (24 archivos)
 │   ├── 000-secuencias.sql
 │   ├── 001-usuarios.sql
@@ -450,7 +451,7 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 | `nombre` | VARCHAR(100) | NOT NULL | Nombre del cliente |
 | `apellido` | VARCHAR(100) | NOT NULL | Apellido del cliente |
 | `telefono` | VARCHAR(20) | NOT NULL | Teléfono (formato: 09XXXXXXXX) |
-| `cedula` | VARCHAR(20) | UNIQUE, NOT NULL | Cédula de identidad |
+| `cedula` | VARCHAR(20) | NULLABLE, UNIQUE cuando existe | Cédula de identidad opcional |
 | `email` | VARCHAR(150) | NULLABLE | Email |
 | `direccion` | TEXT | NULLABLE | Dirección |
 | `consentimiento_datos` | BOOLEAN | NOT NULL, DEFAULT false | **OBLIGATORIO** para crear cliente |
@@ -462,11 +463,12 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 | `fecha_creacion` | TIMESTAMPTZ | DEFAULT NOW() | Fecha de creación |
 | `fecha_actualizacion` | TIMESTAMPTZ | DEFAULT NOW() | Última actualización |
 
-**Índices:** `idx_clientes_cedula`, `idx_clientes_telefono`, `idx_clientes_consiento`
+**Índices:** índice único parcial de cédula no nula, `idx_clientes_telefono`, `idx_clientes_consiento`
 
 **Reglas de negocio:**
 - `consentimiento_datos = true` es **obligatorio** para crear un cliente
 - Sin consentimiento no se puede guardar el cliente
+- La cédula se puede registrar posteriormente; si se proporciona debe ser válida y no repetirse
 - `fecha_revocacion` se establece al revocar consentimiento
 - Solo clientes con `consentimiento_comunicaciones = true` reciben campañas
 

@@ -1,5 +1,6 @@
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/catalogo/vacunas
@@ -21,7 +22,7 @@ async function listar(req, res) {
     const result = await pool.query(query, params);
     return res.json({ data: result.rows });
   } catch (err) {
-    console.error('Error al listar catálogo de vacunas:', err);
+    errorEvent(req, 'vaccine_catalog_list_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -41,7 +42,7 @@ async function obtenerPorId(req, res) {
 
     return res.json({ data: result.rows[0] });
   } catch (err) {
-    console.error('Error al obtener vacuna del catálogo:', err);
+    errorEvent(req, 'vaccine_catalog_get_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -90,7 +91,7 @@ async function crear(req, res) {
         error: { code: 'DUPLICATE_ERROR', message: 'Ya existe una vacuna con ese nombre' }
       });
     }
-    console.error('Error al crear vacuna del catálogo:', err);
+    errorEvent(req, 'vaccine_catalog_create_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -102,7 +103,7 @@ async function crear(req, res) {
 async function actualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nombre, intervaloDias, especie, activa } = req.body;
+    const { nombre, intervalo_dias: intervaloDias, especie, activa } = req.body;
 
     // Verificar que existe
     const existing = await pool.query('SELECT * FROM catalogo_vacunas WHERE id = $1', [id]);
@@ -143,7 +144,7 @@ async function actualizar(req, res) {
         error: { code: 'DUPLICATE_ERROR', message: 'Ya existe una vacuna con ese nombre' }
       });
     }
-    console.error('Error al actualizar vacuna del catálogo:', err);
+    errorEvent(req, 'vaccine_catalog_update_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }
@@ -165,7 +166,7 @@ async function eliminar(req, res) {
 
     return res.json({ message: 'Vacuna del catálogo eliminada correctamente' });
   } catch (err) {
-    console.error('Error al eliminar vacuna del catálogo:', err);
+    errorEvent(req, 'vaccine_catalog_delete_failed', err);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
 }

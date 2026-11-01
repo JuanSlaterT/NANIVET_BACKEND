@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { write } = require('../services/security-events.service');
 
 // Usar DATABASE_URL de Supabase si está disponible, si no, usar variables separadas
 const DATABASE_URL = process.env.DATABASE_URL || process.env.DB_URL;
@@ -52,18 +53,18 @@ if (DATABASE_URL) {
 
 // Manejar reconexión automática en serverless
 pool.on('error', (err) => {
-  console.error('❌ Error inesperado en el pool de PostgreSQL:', err.message);
+  write('error', 'database_pool_error', { errorName: err.name, errorMessage: err.message, errorCode: err.code });
   // No salir del proceso, solo loggear
   // En Vercel, la función se reinvoca y el pool se recrea
 });
 
 // Manejar conexiones perdidas (común en serverless)
 pool.on('connect', () => {
-  console.log('✅ Conectado a PostgreSQL');
+  write('info', 'database_connected');
 });
 
-pool.on('remove', (client) => {
-  console.log('🗑️ Cliente eliminado del pool');
+pool.on('remove', () => {
+  write('info', 'database_client_removed');
 });
 
 // Wrapper para manejar reconexión automática en serverless
@@ -83,7 +84,7 @@ pool.query = async (text, params) => {
       err.code === 'ETIMEDOUT' ||
       err.code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'
     ) {
-      console.log('🔄 Reconectando a PostgreSQL...');
+      write('warn', 'database_reconnecting', { errorCode: err.code });
       // Esperar un momento para que el pool se recupere
       await new Promise(resolve => setTimeout(resolve, 100));
       // Intentar de nuevo

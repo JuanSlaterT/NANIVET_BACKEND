@@ -6,7 +6,7 @@ const { rolesMiddleware } = require('../middleware/roles.middleware');
 const { auditMiddleware } = require('../middleware/audit.middleware');
 
 // Nuevos endpoints unificados
-router.get('/', authMiddleware, medicacionesController.listar);
+router.get('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), medicacionesController.listar);
 router.put('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Medicacion', 'editar'), medicacionesController.actualizar);
 router.post('/:id/tomas', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('TomaMedicacion', 'crear'), medicacionesController.registrarToma);
 

@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth.middleware');
+const pool = require('../config/pool');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/search/global?q=...
@@ -58,7 +60,7 @@ async function buscarGlobal(req, res) {
       }
     });
   } catch (err) {
-    console.error('Error searching global:', err);
+    errorEvent(req, 'global_search_failed', err);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });

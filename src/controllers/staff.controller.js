@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/pool');
 const { genUuid } = require('../utils/genUuid');
 const auditService = require('../services/audit.service');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * GET /api/staff
@@ -34,7 +35,7 @@ async function getAllStaff(req, res) {
 
     return res.json({ data: staff });
   } catch (error) {
-    console.error('Error getting all staff:', error);
+    errorEvent(req, 'staff_list_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -80,7 +81,7 @@ async function getStaffById(req, res) {
 
     return res.json({ data: staff });
   } catch (error) {
-    console.error('Error getting staff by id:', error);
+    errorEvent(req, 'staff_get_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -111,7 +112,7 @@ async function getStaffByEmail(req, res) {
       } 
     });
   } catch (error) {
-    console.error('Error checking email:', error);
+    errorEvent(req, 'staff_email_check_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -226,7 +227,7 @@ async function createStaff(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error creating staff:', error);
+    errorEvent(req, 'staff_create_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -240,7 +241,7 @@ async function createStaff(req, res) {
 async function updateStaff(req, res) {
   try {
     const { id } = req.params;
-    const { nombre, email, password, rol, telefono, especialidad, activo, fechaAlta } = req.body;
+    const { nombre, email, password, rol, telefono, especialidad, activo, fecha_alta: fechaAlta } = req.body;
 
     // Verificar que existe
     const existing = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
@@ -397,7 +398,7 @@ async function updateStaff(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error updating staff:', error);
+    errorEvent(req, 'staff_update_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -470,7 +471,7 @@ async function toggleActive(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error toggling active:', error);
+    errorEvent(req, 'staff_status_update_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });
@@ -525,7 +526,7 @@ async function deleteStaff(req, res) {
       data: { message: 'Miembro del staff eliminado correctamente' }
     });
   } catch (error) {
-    console.error('Error deleting staff:', error);
+    errorEvent(req, 'staff_delete_failed', error);
     return res.status(500).json({
       error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' }
     });

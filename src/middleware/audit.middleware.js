@@ -1,4 +1,5 @@
 const auditService = require('../services/audit.service');
+const { errorEvent } = require('../services/security-events.service');
 
 /**
  * Middleware para loguear automáticamente en auditoría
@@ -21,7 +22,6 @@ function auditMiddleware(entidad, accion) {
         // Extraer ID de la entidad:优先 usar req.entityId (set por controllers al crear),
         // luego params, luego response data
         const entityId = req.entityId || req.params.id || data.data?.id || null;
-        console.log(entityId)
 
         // Calcular diff de campos
         let diffCampos = null;
@@ -53,7 +53,7 @@ function auditMiddleware(entidad, accion) {
           diffCampos,
           req.ip,
           req.headers['user-agent']
-        ).catch(err => console.error('Error en auditoría:', err));
+        ).catch(err => errorEvent(req, 'audit_write_failed', err, { entityId }));
 
         // Restaurar y devolver respuesta original
         res.json = originalJson;
