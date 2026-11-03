@@ -8,7 +8,8 @@ const { genUuid } = require('../utils/genUuid');
 async function listarPesos(req, res) {
   try {
     const result = await pool.query(
-      'SELECT * FROM registros_peso WHERE mascota_id = $1 ORDER BY fecha DESC',
+      `SELECT id, mascota_id, peso_kg AS peso, fecha, fecha_creacion
+       FROM registros_peso WHERE mascota_id = $1 ORDER BY fecha DESC`,
       [req.params.id]
     );
     return res.json({ data: result.rows });
@@ -23,17 +24,19 @@ async function listarPesos(req, res) {
  */
 async function crearPeso(req, res) {
   try {
-    const { peso_kg, fecha } = req.body;
+    const { peso, fecha } = req.body;
 
-    if (!peso_kg || !fecha) {
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'peso_kg y fecha son requeridos' } });
+    if (!peso || !fecha) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'peso y fecha son requeridos' } });
     }
 
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const result = await pool.query(
-      'INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
-      [id, req.params.id, peso_kg, fecha]
+      `INSERT INTO registros_peso (id, mascota_id, peso_kg, fecha, fecha_creacion)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, mascota_id, peso_kg AS peso, fecha, fecha_creacion`,
+      [id, req.params.id, peso, fecha]
     );
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {

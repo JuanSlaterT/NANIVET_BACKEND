@@ -1329,7 +1329,7 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| GET | `/api/citas` | Sí | Listar (filtros: `fecha`, `veterinarioId`, `estado`) |
+| GET | `/api/citas` | Sí | Listar (filtros: `fecha`, `veterinarioId`, `estado`, `mascotaId`) |
 | GET | `/api/citas/:id` | Sí | Obtener una |
 | GET | `/api/citas/token/:token` | No | Obtener por token (público) |
 | POST | `/api/citas` | Sí | Crear (genera token) |
@@ -1431,7 +1431,10 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
   "data": {
     "promedio": 4.1,
     "total": 8,
-    "recomienda": 87.5,
+    "respondidas": 8,
+    "pendientes": 2,
+    "recomienda": 7,
+    "porEstrella": { "1": 0, "2": 0, "3": 1, "4": 2, "5": 5 },
     "porVeterinario": [
       { "veterinarioId": "vet_001", "nombre": "Dra. Nicole Pérez", "promedio": 4.5, "total": 4 }
     ],
@@ -1460,7 +1463,9 @@ medicaciones_hospitalizacion ──(1:N)──> tomas_medicacion (CASCADE DELETE
 |--------|----------|------|-------------|
 | GET | `/api/hospitalizaciones/:id/medicaciones` | admin/vet | Listar medicaciones |
 | POST | `/api/hospitalizaciones/:id/medicaciones` | admin/vet | Crear medicación |
+| POST | `/api/medicaciones/:id/tomas` | admin/vet | Registrar o actualizar una toma por fecha y hora programada |
 | PUT | `/api/medicaciones/:id/tomas/:tomaId/administrar` | admin/vet | Marcar toma como administrada |
+| DELETE | `/api/medicaciones/:id` | admin/vet | Eliminar medicación y sus tomas |
 
 ---
 
@@ -1800,7 +1805,7 @@ Estos endpoints se usan directamente desde el frontend sin necesidad de token:
 
 ## 📝 Notas importantes
 
-1. **Zona horaria:** Todo usa `America/Guayaquil` (UTC-5). PostgreSQL almacena con `TIMESTAMPTZ` y convierte al insertar/consultar.
+1. **Zona horaria:** Todo usa `America/Guayaquil` (UTC-5). PostgreSQL almacena con `TIMESTAMPTZ`. El frontend envía citas con offset (`YYYY-MM-DDTHH:mm:ss-05:00`); por compatibilidad, una fecha sin offset se interpreta también como hora local de la clínica. Los filtros por día y los slots convierten explícitamente a `America/Guayaquil`.
 
 2. **Integridad referencial:**
    - No eliminar cliente con mascotas (`ON DELETE RESTRICT`)
@@ -1884,7 +1889,7 @@ Para reportar issues o sugerencias, abrir un issue en el repositorio.
 
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| GET | `/api/citas` | Sí | Listar (fecha, veterinarioId, estado) |
+| GET | `/api/citas` | Sí | Listar (fecha, veterinarioId, estado, mascotaId) |
 | GET | `/api/citas/:id` | Sí | Obtener uno |
 | GET | `/api/citas/token/:token` | No | Obtener por token (público) |
 | POST | `/api/citas` | Sí | Crear |

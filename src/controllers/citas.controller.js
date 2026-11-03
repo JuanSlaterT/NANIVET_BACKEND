@@ -1,6 +1,6 @@
 const pool = require('../config/pool');
 const { genToken } = require('../utils/genToken');
-const { nowEcuador, formatISO } = require('../utils/dates');
+const { nowEcuador, parseClinicDateTime, clinicDateISO, toEcuador } = require('../utils/dates');
 const { getOcupados } = require('../services/availability.service');
 const { genUuid } = require('../utils/genUuid');
 const { errorEvent } = require('../services/security-events.service');
@@ -11,7 +11,7 @@ const { sanitizeAppointmentForRole } = require('../middleware/clinical-access.mi
  */
 async function listar(req, res) {
   try {
-    const { fecha, veterinarioId, estado } = req.query;
+    const { fecha, veterinarioId, estado, mascotaId } = req.query;
     let query = `
       SELECT ci.*, mas.nombre AS mascota_nombre, mas.especie AS mascota_especie,
              v.nombre AS veterinario_nombre, cli.nombre AS cliente_nombre, cli.apellido AS cliente_apellido,
@@ -22,22 +22,27 @@ async function listar(req, res) {
       JOIN clientes cli ON mas.cliente_id = cli.id
     `;
     const params = [];
-    let paramCount = 1;
+    const filters = [];
 
     if (fecha) {
-      query += ` WHERE ci.fecha_hora::date = $${paramCount}`;
       params.push(fecha);
-      paramCount++;
+      filters.push(`(ci.fecha_hora AT TIME ZONE 'America/Guayaquil')::date = $${params.length}::date`);
     }
     if (veterinarioId) {
-      query += `${fecha ? ' AND' : ' WHERE'} ci.veterinario_id = $${paramCount}`;
       params.push(veterinarioId);
-      paramCount++;
+      filters.push(`ci.veterinario_id = $${params.length}`);
     }
     if (estado) {
-      query += ` ${fecha || veterinarioId ? 'AND' : 'WHERE'} ci.estado = $${paramCount}`;
       params.push(estado);
-      paramCount++;
+      filters.push(`ci.estado = $${params.length}`);
+    }
+    if (mascotaId) {
+      params.push(mascotaId);
+      filters.push(`ci.mascota_id = $${params.length}`);
+    }
+
+    if (filters.length > 0) {
+      query += ` WHERE ${filters.join(' AND ')}`;
     }
 
     query += ' ORDER BY ci.fecha_hora DESC';
@@ -65,8 +70,8 @@ async function obtenerProximasPorVeterinario(req, res) {
         JOIN mascotas mas ON ci.mascota_id = mas.id
         JOIN veterinarios v ON ci.veterinario_id = v.id
         WHERE ci.veterinario_id = $1
-          AND ci.fecha_hora::date >= CURRENT_DATE
-          AND ci.fecha_hora::date <= CURRENT_DATE + INTERVAL '14 days'
+          AND (ci.fecha_hora AT TIME ZONE 'America/Guayaquil')::date >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guayaquil')::date
+          AND (ci.fecha_hora AT TIME ZONE 'America/Guayaquil')::date <= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guayaquil')::date + 14
         ORDER BY ci.fecha_hora ASC
       `,
       [vetId]
@@ -137,14 +142,18 @@ async function obtenerPorToken(req, res) {
 async function crear(req, res) {
   try {
     const { mascota_id: mascotaId, veterinario_id: veterinarioId, tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
+    const fechaHora = parseClinicDateTime(fecha_hora);
+    if (!fechaHora) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'fecha_hora no es válida' } });
+    }
 
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const token = genToken();
     // Verificar disponibilidad
-    const fecha = fecha_hora.split('T')[0];
+    const fecha = clinicDateISO(fechaHora);
     const ocupados = await getOcupados(veterinarioId, fecha);
-    const hora = fecha_hora.split('T')[1]?.substring(0, 5) || '00:00';
+    const hora = toEcuador(fechaHora).toFormat('HH:mm');
     if (ocupados.includes(hora)) {
       return res.status(409).json({ error: { code: 'SLOT_OCCUPIED', message: 'Este horario no está disponible' } });
     }
@@ -154,7 +163,7 @@ async function crear(req, res) {
        confirmada_por_cliente, cancelada_por_cliente, peso_cita, fecha_creacion, fecha_actualizacion)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, false, $10, NOW(), NOW())
        RETURNING *`,
-      [id, mascotaId, veterinarioId, tipo_servicio, fecha_hora, estado || 'pendiente', motivo || null, notas || null, token, peso_cita || null]
+      [id, mascotaId, veterinarioId, tipo_servicio, fechaHora, estado || 'pendiente', motivo || null, notas || null, token, peso_cita || null]
     );
 
     const nuevaCita = result.rows[0];
@@ -170,7 +179,9 @@ async function crear(req, res) {
             mascotaId,
             veterinarioId,
             id,
-            fecha_hora
+            fechaHora,
+            'Por asignar',
+            motivo || 'Cirugía'
           ]
         );
       } catch (hospitalErr) {
@@ -257,21 +268,48 @@ async function crear(req, res) {
  */
 async function actualizar(req, res) {
   try {
-    const { tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita } = req.body;
+    const {
+      mascota_id: mascotaId,
+      veterinario_id: veterinarioId,
+      tipo_servicio,
+      fecha_hora,
+      estado,
+      motivo,
+      notas,
+      peso_cita,
+    } = req.body;
+    const fechaHora = fecha_hora ? parseClinicDateTime(fecha_hora) : null;
+    if (fecha_hora && !fechaHora) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'fecha_hora no es válida' } });
+    }
 
     // No modificar cita atendida
-    const current = await pool.query('SELECT estado FROM citas WHERE id = $1', [req.params.id]);
+    const current = await pool.query('SELECT estado, veterinario_id, fecha_hora FROM citas WHERE id = $1', [req.params.id]);
     if (current.rows.length > 0 && current.rows[0].estado === 'atendida') {
       return res.status(400).json({ error: { code: 'CANNOT_MODIFY', message: 'No se puede modificar una cita atendida' } });
+    }
+    if (current.rows.length > 0 && (fechaHora || veterinarioId)) {
+      const targetVet = veterinarioId || current.rows[0].veterinario_id;
+      const targetDateTime = fechaHora || current.rows[0].fecha_hora;
+      const occupied = await pool.query(
+        `SELECT 1 FROM citas
+         WHERE veterinario_id = $1 AND fecha_hora = $2 AND id != $3 AND estado != 'cancelada'
+         LIMIT 1`,
+        [targetVet, targetDateTime, req.params.id]
+      );
+      if (occupied.rows.length > 0) {
+        return res.status(409).json({ error: { code: 'SLOT_OCCUPIED', message: 'Este horario no está disponible' } });
+      }
     }
 
     const result = await pool.query(
       `UPDATE citas SET
-       tipo_servicio = COALESCE($1, tipo_servicio), fecha_hora = COALESCE($2, fecha_hora),
-       estado = COALESCE($3, estado), motivo = COALESCE($4, motivo), notas = COALESCE($5, notas),
-       peso_cita = COALESCE($6, peso_cita), fecha_actualizacion = NOW()
-       WHERE id = $7 RETURNING *`,
-      [tipo_servicio, fecha_hora, estado, motivo, notas, peso_cita || null, req.params.id]
+       mascota_id = COALESCE($1, mascota_id), veterinario_id = COALESCE($2, veterinario_id),
+       tipo_servicio = COALESCE($3, tipo_servicio), fecha_hora = COALESCE($4, fecha_hora),
+       estado = COALESCE($5, estado), motivo = COALESCE($6, motivo), notas = COALESCE($7, notas),
+       peso_cita = COALESCE($8, peso_cita), fecha_actualizacion = NOW()
+       WHERE id = $9 RETURNING *`,
+      [mascotaId, veterinarioId, tipo_servicio, fechaHora, estado, motivo, notas, peso_cita || null, req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } });
@@ -281,7 +319,7 @@ async function actualizar(req, res) {
 
     // Si la cita se marca como 'atendida' y tiene peso, registrar peso, crear puntuación y auto-registrar vacunas/desparasitaciones
     if (estado === 'atendida') {
-      const fecha = (updatedCita.fecha_hora && updatedCita.fecha_hora.split('T')[0]) || new Date().toISOString().split('T')[0];
+      const fecha = clinicDateISO(updatedCita.fecha_hora) || nowEcuador().toISODate();
 
       // Registrar peso si se proporcionó
       if (peso_cita) {
@@ -346,23 +384,28 @@ async function actualizar(req, res) {
         }
       }
 
-      // Regla de negocio: Si es cirugía con estado confirmada o atendida, crear hospitalización automáticamente
-      if (updatedCita.tipo_servicio === 'cirugia' && (estado === 'confirmada' || estado === 'atendida')) {
-        try {
-          await pool.query(
-            `INSERT INTO hospitalizaciones (id, mascota_id, veterinario_id, cita_id, fecha_ingreso, jaula_area, motivo, estado, fecha_creacion)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'hospitalizado', NOW())`,
-            [
-              genUuid(),
-              updatedCita.mascota_id,
-              updatedCita.veterinario_id,
-              req.params.id,
-              updatedCita.fecha_hora
-            ]
-          );
-        } catch (hospitalErr) {
-          errorEvent(req, 'automatic_hospitalization_failed', hospitalErr, { appointmentId: req.params.id });
-        }
+    }
+
+    // Una cirugía confirmada o atendida debe tener exactamente una hospitalización asociada.
+    if (updatedCita.tipo_servicio === 'cirugia' && (estado === 'confirmada' || estado === 'atendida')) {
+      try {
+        await pool.query(
+          `INSERT INTO hospitalizaciones
+           (id, mascota_id, veterinario_id, cita_id, fecha_ingreso, jaula_area, motivo, estado, fecha_creacion)
+           SELECT $1, $2, $3, $4, $5, $6, $7, 'hospitalizado', NOW()
+           WHERE NOT EXISTS (SELECT 1 FROM hospitalizaciones WHERE cita_id = $4)`,
+          [
+            genUuid(),
+            updatedCita.mascota_id,
+            updatedCita.veterinario_id,
+            req.params.id,
+            updatedCita.fecha_hora,
+            'Por asignar',
+            updatedCita.motivo || 'Cirugía',
+          ]
+        );
+      } catch (hospitalErr) {
+        errorEvent(req, 'automatic_hospitalization_failed', hospitalErr, { appointmentId: req.params.id });
       }
     }
 
@@ -450,6 +493,10 @@ async function cancelarPorToken(req, res) {
 async function reprogramarPorToken(req, res) {
   try {
     const fechaHora = req.body.fecha_hora || req.body.nueva_fecha_hora || req.body.nuevaFechaHora;
+    const nuevaFechaHora = parseClinicDateTime(fechaHora);
+    if (!nuevaFechaHora) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'La nueva fecha y hora no es válida' } });
+    }
     const cita = await pool.query('SELECT * FROM citas WHERE token = $1', [req.params.token]);
     if (cita.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } });
@@ -463,13 +510,23 @@ async function reprogramarPorToken(req, res) {
       return res.status(400).json({ error: { code: 'TOO_LATE', message: 'Solo se pueden reprogramar citas con más de 12 horas de anticipación' } });
     }
 
+    const occupied = await pool.query(
+      `SELECT 1 FROM citas
+       WHERE veterinario_id = $1 AND fecha_hora = $2 AND id != $3 AND estado != 'cancelada'
+       LIMIT 1`,
+      [cita.rows[0].veterinario_id, nuevaFechaHora, cita.rows[0].id]
+    );
+    if (occupied.rows.length > 0) {
+      return res.status(409).json({ error: { code: 'SLOT_OCCUPIED', message: 'Este horario no está disponible' } });
+    }
+
     const result = await pool.query(
       `UPDATE citas SET fecha_hora = $1, estado = 'pendiente',
        ultimo_cambio_por = 'cliente', fecha_actualizacion = NOW()
        WHERE token = $2
        RETURNING id, mascota_id, veterinario_id, tipo_servicio, fecha_hora, estado, motivo,
                  confirmada_por_cliente, cancelada_por_cliente`,
-      [fechaHora, req.params.token]
+      [nuevaFechaHora, req.params.token]
     );
     return res.json({ data: result.rows[0] });
   } catch (err) {

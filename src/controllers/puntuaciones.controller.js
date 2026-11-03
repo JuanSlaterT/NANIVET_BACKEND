@@ -57,10 +57,17 @@ async function estadisticas(req, res) {
     const avgResult = await pool.query(
       `SELECT 
         COALESCE(AVG(calificacion), 0)::NUMERIC(3,1) AS promedio,
-        COUNT(*) AS total,
-        COALESCE(AVG(CASE WHEN recomienda = true THEN 1 ELSE 0 END) * 100, 0)::NUMERIC(5,1) AS recomienda_pct
+        COUNT(*) AS respondidas,
+        COUNT(*) FILTER (WHERE recomienda = true) AS recomienda
        FROM puntuaciones
        WHERE respondida = true AND calificacion > 0`
+    );
+
+    const starsResult = await pool.query(
+      `SELECT calificacion, COUNT(*) AS total
+       FROM puntuaciones
+       WHERE respondida = true AND calificacion BETWEEN 1 AND 5
+       GROUP BY calificacion`
     );
 
     // Por veterinario
@@ -98,11 +105,20 @@ async function estadisticas(req, res) {
        ORDER BY ci.fecha_hora DESC`
     );
 
+    const respondidas = parseInt(avgResult.rows[0].respondidas, 10);
+    const porEstrella = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const row of starsResult.rows) {
+      porEstrella[Number(row.calificacion)] = parseInt(row.total, 10);
+    }
+
     return res.json({
       data: {
         promedio: parseFloat(avgResult.rows[0].promedio),
-        total: parseInt(avgResult.rows[0].total),
-        recomienda: parseFloat(avgResult.rows[0].recomienda_pct),
+        total: respondidas,
+        respondidas,
+        pendientes: pendingResult.rows.length,
+        recomienda: parseInt(avgResult.rows[0].recomienda, 10),
+        porEstrella,
         porVeterinario: vetResult.rows.map(v => ({
           veterinarioId: v.veterinario_id,
           nombre: v.veterinario_nombre,
@@ -117,14 +133,6 @@ async function estadisticas(req, res) {
           recomienda: r.recomienda,
           comentario: r.comentario,
           fechaRespuesta: r.fecha_respuesta
-        })),
-        pendientes: pendingResult.rows.map(r => ({
-          id: r.id,
-          citaId: r.cita_id,
-          mascotaNombre: r.mascota_nombre,
-          veterinarioNombre: r.veterinario_nombre,
-          fechaHora: r.fecha_hora,
-          token: r.token
         }))
       }
     });
@@ -177,7 +185,7 @@ async function responderPorToken(req, res) {
       `UPDATE puntuaciones SET 
        calificacion = $1, recomienda = $2, comentario = $3, respondida = true, fecha_respuesta = $4
        WHERE token = $5 RETURNING *`,
-      [calificacion, recomienda || null, comentario || null, ahora, req.params.token]
+      [calificacion, recomienda ?? null, comentario || null, ahora, req.params.token]
     );
 
     if (result.rows.length === 0) {

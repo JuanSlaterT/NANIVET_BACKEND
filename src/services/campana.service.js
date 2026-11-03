@@ -29,6 +29,7 @@ async function calcularSegmentos() {
     result.vacunas_vencidas = vacunasRes.rows.map(v => ({
       clienteId: v.cliente_id,
       clienteNombre: `${v.cliente_nombre} ${v.cliente_apellido}`,
+      telefono: v.cliente_telefono,
       mascotaId: v.mascota_id,
       mascotaNombre: v.mascota_nombre,
       motivo: `Vacuna ${v.nombre} vence ${v.proxima_dosis} - refuerzo`,
@@ -55,6 +56,7 @@ async function calcularSegmentos() {
     result.desparasitacion_pendiente = desparRes.rows.map(d => ({
       clienteId: d.cliente_id,
       clienteNombre: `${d.cliente_nombre} ${d.cliente_apellido}`,
+      telefono: d.cliente_telefono,
       mascotaId: d.mascota_id,
       mascotaNombre: d.mascota_nombre,
       motivo: `Desparasización con ${d.producto} próxima: ${d.proxima_dosis}`,
@@ -72,7 +74,7 @@ async function calcularSegmentos() {
            AND ci.estado = 'atendida'
         ) AS ultima_cita_atendida
       FROM clientes c
-      WHERE (
+      WHERE ((
         SELECT MAX(ci.fecha_hora)
         FROM citas ci
         JOIN mascotas m ON ci.mascota_id = m.id
@@ -85,13 +87,14 @@ async function calcularSegmentos() {
         JOIN mascotas m ON ci.mascota_id = m.id
         WHERE m.cliente_id = c.id
           AND ci.estado = 'atendida'
-      ) IS NULL
+      ) IS NULL)
       AND c.consentimiento_comunicaciones = true
     `);
 
     result.clientes_inactivos = inactivosRes.rows.map(c => ({
       clienteId: c.id,
       clienteNombre: `${c.nombre} ${c.apellido}`,
+      telefono: c.telefono,
       mascotaId: null,
       mascotaNombre: null,
       motivo: `Sin visitas desde hace más de 6 meses`,
@@ -104,18 +107,21 @@ async function calcularSegmentos() {
         m.*,
         cli.nombre AS cliente_nombre,
         cli.apellido AS cliente_apellido,
-        cli.telefono AS cliente_telefono
+        cli.telefono AS cliente_telefono,
+        cli.consentimiento_comunicaciones
       FROM mascotas m
       JOIN clientes cli ON m.cliente_id = cli.id
       WHERE EXTRACT(MONTH FROM m.fecha_nacimiento) = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM m.fecha_nacimiento) BETWEEN EXTRACT(DAY FROM CURRENT_DATE)
           AND EXTRACT(DAY FROM (CURRENT_DATE + INTERVAL '7 days'))
+        AND cli.consentimiento_comunicaciones = true
       ORDER BY m.fecha_nacimiento
     `);
 
     result.cumpleanos_mascotas = cumpleRes.rows.map(m => ({
       clienteId: m.cliente_id,
       clienteNombre: `${m.cliente_nombre} ${m.cliente_apellido}`,
+      telefono: m.cliente_telefono,
       mascotaId: m.id,
       mascotaNombre: m.nombre,
       motivo: `¡Cumpleaños de ${m.nombre}!`,

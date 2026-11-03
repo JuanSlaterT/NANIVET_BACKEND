@@ -36,6 +36,26 @@ async function listar(req, res) {
   }
 }
 
+/** GET /api/desparasitaciones/:id */
+async function obtener(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT d.*, mas.nombre AS mascota_nombre, v.nombre AS veterinario_nombre
+       FROM desparasitaciones d
+       JOIN mascotas mas ON d.mascota_id = mas.id
+       JOIN veterinarios v ON d.veterinario_id = v.id
+       WHERE d.id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Desparasitación no encontrada' } });
+    }
+    return res.json({ data: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  }
+}
+
 /**
  * POST /api/desparasitaciones
  * Crear desparasitación
@@ -59,6 +79,44 @@ async function crear(req, res) {
   }
 }
 
+/** PUT /api/desparasitaciones/:id */
+async function actualizar(req, res) {
+  try {
+    const fields = [];
+    const values = [];
+    const mapping = {
+      mascota_id: 'mascota_id',
+      caso_id: 'caso_id',
+      producto: 'producto',
+      dosis: 'dosis',
+      fecha: 'fecha',
+      proxima_dosis: 'proxima_dosis',
+      veterinario_id: 'veterinario_id',
+    };
+    for (const [bodyField, dbField] of Object.entries(mapping)) {
+      if (req.body[bodyField] !== undefined) {
+        const nullable = bodyField === 'caso_id' || bodyField === 'proxima_dosis';
+        values.push(nullable && !req.body[bodyField] ? null : req.body[bodyField]);
+        fields.push(`${dbField} = $${values.length}`);
+      }
+    }
+    if (fields.length === 0) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'No hay campos para actualizar' } });
+    }
+    values.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE desparasitaciones SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Desparasitación no encontrada' } });
+    }
+    return res.json({ data: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  }
+}
+
 /**
  * DELETE /api/desparasitaciones/:id
  * Eliminar desparasitación
@@ -72,4 +130,4 @@ async function eliminar(req, res) {
   }
 }
 
-module.exports = { listar, crear, eliminar };
+module.exports = { listar, obtener, crear, actualizar, eliminar };

@@ -1,11 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const hospitalizacionesController = require('../controllers/hospitalizaciones.controller');
+const medicacionesController = require('../controllers/medicaciones.controller');
+const evolucionesController = require('../controllers/evoluciones.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
 const { rolesMiddleware } = require('../middleware/roles.middleware');
 const { auditMiddleware } = require('../middleware/audit.middleware');
 
 router.get('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), hospitalizacionesController.listar);
+router.get('/:id/medicaciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), medicacionesController.listarMedicaciones);
+router.post('/:id/medicaciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Medicacion', 'crear'), medicacionesController.crearMedicacion);
+router.get('/:id/evoluciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), evolucionesController.listarEvoluciones);
+router.post('/:id/evoluciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Evolucion', 'crear'), evolucionesController.crearEvolucion);
 router.get('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), hospitalizacionesController.obtener);
 router.post('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Hospitalizacion', 'crear'), hospitalizacionesController.crear);
 router.put('/:id/alta', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Hospitalizacion', 'alta_hospitalizacion'), hospitalizacionesController.darAlta);

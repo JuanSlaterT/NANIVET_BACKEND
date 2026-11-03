@@ -8,11 +8,10 @@ const { auditMiddleware } = require('../middleware/audit.middleware');
 // Nuevos endpoints unificados
 router.get('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), medicacionesController.listar);
 router.put('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Medicacion', 'editar'), medicacionesController.actualizar);
+router.delete('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Medicacion', 'eliminar'), medicacionesController.eliminar);
 router.post('/:id/tomas', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('TomaMedicacion', 'crear'), medicacionesController.registrarToma);
 
 // Endpoints legacy de hospitalización
-router.get('/hospitalizaciones/:id/medicaciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), medicacionesController.listarMedicaciones);
-router.post('/hospitalizaciones/:id/medicaciones', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Medicacion', 'crear'), medicacionesController.crearMedicacion);
-router.put('/medicaciones/:medId/tomas/:tomaId/administrar', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('TomaMedicacion', 'editar'), medicacionesController.administrarToma);
+router.put('/:medId/tomas/:tomaId/administrar', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('TomaMedicacion', 'editar'), medicacionesController.administrarToma);
 
 module.exports = router;

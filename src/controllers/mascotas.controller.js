@@ -104,18 +104,32 @@ async function crear(req, res) {
  */
 async function actualizar(req, res) {
   try {
-    const { nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, esterilizado, microchip, alergias, notas } = req.body;
+    const { cliente_id, nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url, esterilizado, microchip, alergias, notas } = req.body;
     const result = await pool.query(
       `UPDATE mascotas SET
-       nombre = COALESCE($1, nombre), especie = COALESCE($2, especie), sexo = COALESCE($3, sexo),
-       fecha_nacimiento = COALESCE($4, fecha_nacimiento), raza = COALESCE($5, raza),
-       color = COALESCE($6, color), foto_url = COALESCE($7, foto_url),
-       esterilizado = COALESCE($8, esterilizado), microchip = COALESCE($9, microchip),
-       alergias = COALESCE($10, alergias), notas = COALESCE($11, notas),
+       cliente_id = COALESCE($1, cliente_id),
+       nombre = COALESCE($2, nombre), especie = COALESCE($3, especie), sexo = COALESCE($4, sexo),
+       fecha_nacimiento = COALESCE($5, fecha_nacimiento),
+       raza = CASE WHEN $6::boolean THEN $7 ELSE raza END,
+       color = CASE WHEN $8::boolean THEN $9 ELSE color END,
+       foto_url = CASE WHEN $10::boolean THEN $11 ELSE foto_url END,
+       esterilizado = COALESCE($12, esterilizado),
+       microchip = CASE WHEN $13::boolean THEN $14 ELSE microchip END,
+       alergias = CASE WHEN $15::boolean THEN $16 ELSE alergias END,
+       notas = CASE WHEN $17::boolean THEN $18 ELSE notas END,
        fecha_actualizacion = NOW()
-       WHERE id = $12 RETURNING *`,
-      [nombre, especie, sexo, fecha_nacimiento, raza, color, foto_url,
-       esterilizado, microchip, alergias, notas, req.params.id]
+       WHERE id = $19 RETURNING *`,
+      [
+        cliente_id, nombre, especie, sexo, fecha_nacimiento,
+        raza !== undefined, raza ?? null,
+        color !== undefined, color ?? null,
+        foto_url !== undefined, foto_url ?? null,
+        esterilizado,
+        microchip !== undefined, microchip ?? null,
+        alergias !== undefined, alergias ?? null,
+        notas !== undefined, notas ?? null,
+        req.params.id,
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mascota no encontrada' } });

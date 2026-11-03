@@ -15,12 +15,27 @@ function nowEcuador() {
  */
 function toEcuador(date) {
   if (typeof date === 'string') {
-    return DateTime.fromISO(date, { zone: 'utc' }).setZone('America/Guayaquil');
+    const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(date);
+    const parsed = hasExplicitZone
+      ? DateTime.fromISO(date, { setZone: true })
+      : DateTime.fromISO(date, { zone: 'America/Guayaquil' });
+    return parsed.setZone('America/Guayaquil');
   }
   if (date instanceof Date) {
     return DateTime.fromJSDate(date).setZone('America/Guayaquil');
   }
   return date.setZone('America/Guayaquil');
+}
+
+/** Interpreta fechas sin offset como hora local de la clínica y devuelve un ISO absoluto. */
+function parseClinicDateTime(date) {
+  const parsed = toEcuador(date);
+  return parsed.isValid ? parsed.toUTC().toISO({ suppressMilliseconds: true }) : null;
+}
+
+function clinicDateISO(date) {
+  const parsed = toEcuador(date);
+  return parsed.isValid ? parsed.toISODate() : null;
 }
 
 /**
@@ -87,6 +102,8 @@ function isWithinDays(date, days) {
 module.exports = {
   nowEcuador,
   toEcuador,
+  parseClinicDateTime,
+  clinicDateISO,
   formatISO,
   formatDate,
   formatTime,

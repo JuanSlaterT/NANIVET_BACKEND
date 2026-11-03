@@ -37,6 +37,26 @@ async function listar(req, res) {
   }
 }
 
+/** GET /api/tratamientos/:id */
+async function obtener(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT t.*, mas.nombre AS mascota_nombre, v.nombre AS veterinario_nombre
+       FROM tratamientos t
+       JOIN mascotas mas ON t.mascota_id = mas.id
+       JOIN veterinarios v ON t.veterinario_id = v.id
+       WHERE t.id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tratamiento no encontrado' } });
+    }
+    return res.json({ data: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  }
+}
+
 /**
  * POST /api/tratamientos
  * Crear tratamiento
@@ -67,7 +87,15 @@ async function crear(req, res) {
  */
 async function actualizar(req, res) {
   try {
-    const { mascotaId, casoId, nombre, dosis, duracion, fecha, veterinarioId } = req.body;
+    const {
+      mascota_id: mascotaId,
+      caso_id: casoId,
+      nombre,
+      dosis,
+      duracion,
+      fecha,
+      veterinario_id: veterinarioId,
+    } = req.body;
     const fields = [];
     const values = [];
     let paramCount = 1;
@@ -113,4 +141,4 @@ async function eliminar(req, res) {
   }
 }
 
-module.exports = { listar, crear, actualizar, eliminar };
+module.exports = { listar, obtener, crear, actualizar, eliminar };

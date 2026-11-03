@@ -32,10 +32,10 @@ async function getOcupados(veterinarioId, fecha) {
     // 2. Si no está bloqueado, devolver solo las citas existentes
     const result = await client.query(`
       SELECT
-        TO_CHAR(fecha_hora, 'HH24:MI') AS hora
+        TO_CHAR(fecha_hora AT TIME ZONE 'America/Guayaquil', 'HH24:MI') AS hora
       FROM citas
       WHERE veterinario_id = $1
-        AND fecha_hora::date = $2::date
+        AND (fecha_hora AT TIME ZONE 'America/Guayaquil')::date = $2::date
         AND estado != 'cancelada'
       ORDER BY fecha_hora
     `, [veterinarioId, fecha]);

@@ -1,5 +1,5 @@
 const pool = require('../config/pool');
-const { nowEcuador } = require('../utils/dates');
+const { nowEcuador, parseClinicDateTime } = require('../utils/dates');
 const { genUuid } = require('../utils/genUuid');
 
 /**
@@ -66,7 +66,7 @@ async function obtener(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascota_id:mascotaId, motivo, soap, diagnostico, estado, veterinario_id:veterinarioId } = req.body;
+    const { mascota_id:mascotaId, motivo, soap, diagnostico, estado, fecha, veterinario_id:veterinarioId } = req.body;
 
     // Verificar que la mascota existe
     const mascotaCheck = await pool.query('SELECT id FROM mascotas WHERE id = $1', [mascotaId]);
@@ -77,14 +77,18 @@ async function crear(req, res) {
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
+    const fechaHoraInicio = fecha ? parseClinicDateTime(fecha) : nowEcuador().toUTC().toISO();
+    if (!fechaHoraInicio) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'La fecha del caso no es válida' } });
+    }
 
     const result = await pool.query(
       `INSERT INTO casos_clinicos (id, mascota_id, motivo, soap_subjetivo, soap_objetivo, soap_analisis, soap_plan,
        diagnostico, estado, fecha_hora_inicio, veterinario_id, fecha_creacion, fecha_actualizacion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
        RETURNING *`,
       [id, mascotaId, motivo, soap?.subjetivo || null, soap?.objetivo || null, soap?.analisis || null, soap?.plan || null,
-       diagnostico || null, estado || 'abierto', vetId]
+       diagnostico || null, estado || 'abierto', fechaHoraInicio, vetId]
     );
     return res.status(201).json({ data: result.rows[0] });
   } catch (err) {

@@ -89,11 +89,16 @@ async function enviarCampana(req, res) {
         // Generar enlace de WhatsApp si tiene teléfono
         let whatsappLink = null;
         if (envio.telefono) {
-          whatsappLink = generateWhatsAppLink(envio.telefono, {
-            dueno: envio.dueno || '',
-            mascota: envio.mascota || '',
-            motivo: envio.motivo || ''
-          });
+          if (envio.mensaje) {
+            const phone = normalizePhone(envio.telefono).replace('+', '');
+            whatsappLink = `https://wa.me/${phone}?text=${encodeURIComponent(envio.mensaje)}`;
+          } else {
+            whatsappLink = generateWhatsAppLink(envio.telefono, {
+              dueno: envio.dueno || '',
+              mascota: envio.mascota || '',
+              motivo: envio.motivo || ''
+            });
+          }
         }
 
         resultados.exitosos++;

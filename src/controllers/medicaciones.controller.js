@@ -1,4 +1,6 @@
 const pool = require('../config/pool');
+const { genUuid } = require('../utils/genUuid');
+const { nowEcuador } = require('../utils/dates');
 
 /**
  * Genera todas las tomas basándose en horasProgramadas y rango de fechas.
@@ -6,15 +8,21 @@ const pool = require('../config/pool');
  */
 function generarTomasAutomaticas(medicacion, tomasDB) {
   const tomas = [];
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  let inicio = new Date(medicacion.fecha_inicio);
-  inicio.setHours(0, 0, 0, 0);
+  const hoy = nowEcuador().startOf('day');
+  const inicio = nowEcuador().set({
+    year: Number(String(medicacion.fecha_inicio).slice(0, 4)),
+    month: Number(String(medicacion.fecha_inicio).slice(5, 7)),
+    day: Number(String(medicacion.fecha_inicio).slice(8, 10)),
+  }).startOf('day');
 
   // Si no tiene fechaFin, usar hoy (no generar tomas futuras)
-  let fin = medicacion.fecha_fin ? new Date(medicacion.fecha_fin) : hoy;
-  fin.setHours(0, 0, 0, 0);
+  const fin = medicacion.fecha_fin
+    ? nowEcuador().set({
+        year: Number(String(medicacion.fecha_fin).slice(0, 4)),
+        month: Number(String(medicacion.fecha_fin).slice(5, 7)),
+        day: Number(String(medicacion.fecha_fin).slice(8, 10)),
+      }).startOf('day')
+    : hoy;
 
   // Crear mapa de tomas ya administradas (desde DB) para referencia rápida
   const tomasMap = new Map();
@@ -26,16 +34,20 @@ function generarTomasAutomaticas(medicacion, tomasDB) {
   }
 
   // Iterar por cada día en el rango
-  const dia = new Date(inicio);
+  let dia = inicio;
   while (dia <= fin) {
-    const fechaStr = dia.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const fechaStr = dia.toISODate();
 
     // Para cada hora programada
-    let horas;
-    try {
-      horas = JSON.parse(medicacion.horas_programadas);
-    } catch (e) {
-      horas = [];
+    let horas = [];
+    if (Array.isArray(medicacion.horas_programadas)) {
+      horas = medicacion.horas_programadas;
+    } else {
+      try {
+        horas = JSON.parse(medicacion.horas_programadas || '[]');
+      } catch (e) {
+        horas = [];
+      }
     }
 
     for (const hora of horas) {
@@ -52,7 +64,7 @@ function generarTomasAutomaticas(medicacion, tomasDB) {
     }
 
     // Avanzar al siguiente día
-    dia.setDate(dia.getDate() + 1);
+    dia = dia.plus({ days: 1 });
   }
 
   return tomas;
@@ -105,12 +117,20 @@ async function listar(req, res) {
     let tomasParamCount = 1;
 
     if (hospitalizacionId) {
-      tomasQuery += ` JOIN medicaciones_hospitalizacion m ON tm.medicacion_id = m.id WHERE m.hospitalizacion_id = $${tomasParamCount}`;
+      tomasQuery += ` AND EXISTS (
+        SELECT 1 FROM medicaciones_hospitalizacion mh
+        WHERE mh.id = tm.medicacion_id AND mh.hospitalizacion_id = $${tomasParamCount}
+      )`;
       tomasParams.push(hospitalizacionId);
       tomasParamCount++;
     }
     if (mascotaId) {
-      tomasQuery += ` ${hospitalizacionId ? 'AND' : 'WHERE'} EXISTS (SELECT 1 FROM medicaciones_hospitalizacion m2 JOIN hospitalizaciones h2 ON m2.hospitalizacion_id = h2.id WHERE tm.medicacion_id = m2.id ${hospitalizacionId ? 'AND' : 'AND'} h2.mascota_id = $${tomasParamCount})`;
+      tomasQuery += ` AND EXISTS (
+        SELECT 1
+        FROM medicaciones_hospitalizacion mh
+        JOIN hospitalizaciones h ON h.id = mh.hospitalizacion_id
+        WHERE mh.id = tm.medicacion_id AND h.mascota_id = $${tomasParamCount}
+      )`;
       tomasParams.push(mascotaId);
       tomasParamCount++;
     }
@@ -207,7 +227,7 @@ async function crearMedicacion(req, res) {
        RETURNING *`,
       [id, req.params.id, medicamento, dosis, via, frecuencia, JSON.stringify(horas_programadas), fecha_inicio, fecha_fin || null]
     );
-    return res.status(201).json({ data: result.rows[0] });
+    return res.status(201).json({ data: { ...result.rows[0], tomas: [] } });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -219,7 +239,15 @@ async function crearMedicacion(req, res) {
  */
 async function actualizar(req, res) {
   try {
-    const { medicamento, dosis, via, frecuencia, horasProgramadas, fechaInicio, fechaFin } = req.body;
+    const {
+      medicamento,
+      dosis,
+      via,
+      frecuencia,
+      horas_programadas: horasProgramadas,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+    } = req.body;
     const fields = [];
     const values = [];
     let paramCount = 1;
@@ -257,7 +285,9 @@ async function actualizar(req, res) {
  */
 async function registrarToma(req, res) {
   try {
-    const { fecha, hora, administrada, horaReal, usuario } = req.body;
+    const { fecha, hora, administrada, usuario } = req.body;
+    const horaReal = req.body.hora_real || req.body.horaReal
+      || (administrada ? nowEcuador().toFormat('HH:mm:ss') : null);
     const { id } = req.params;
     const db = pool;
 
@@ -293,6 +323,33 @@ async function registrarToma(req, res) {
 }
 
 /**
+ * DELETE /api/medicaciones/:id
+ * Eliminar una medicación y sus tomas asociadas.
+ */
+async function eliminar(req, res) {
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    await db.query('DELETE FROM tomas_medicacion WHERE medicacion_id = $1', [req.params.id]);
+    const result = await db.query(
+      'DELETE FROM medicaciones_hospitalizacion WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      await db.query('ROLLBACK');
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Medicación no encontrada' } });
+    }
+    await db.query('COMMIT');
+    return res.json({ data: { deleted: true } });
+  } catch (err) {
+    await db.query('ROLLBACK');
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  } finally {
+    db.release();
+  }
+}
+
+/**
  * PUT /api/medicaciones/:medId/tomas/:tomaId/administrar
  * Marcar toma como administrada (legacy endpoint)
  */
@@ -317,4 +374,4 @@ async function administrarToma(req, res) {
   }
 }
 
-module.exports = { listar, listarMedicaciones, crearMedicacion, actualizar, registrarToma, administrarToma };
+module.exports = { listar, listarMedicaciones, crearMedicacion, actualizar, eliminar, registrarToma, administrarToma };

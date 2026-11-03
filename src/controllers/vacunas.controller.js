@@ -9,7 +9,7 @@ async function listar(req, res) {
   try {
     const { mascotaId, casoId, porVencer } = req.query;
     let query = `
-      SELECT v.*, mas.nombre AS mascota_nombre, v.nombre AS veterinario_nombre
+      SELECT v.*, mas.nombre AS mascota_nombre, vet.nombre AS veterinario_nombre
       FROM vacunas v
       JOIN mascotas mas ON v.mascota_id = mas.id
       JOIN veterinarios vet ON v.veterinario_id = vet.id
@@ -46,7 +46,7 @@ async function listar(req, res) {
  */
 async function crear(req, res) {
   try {
-    const { mascota_id:mascotaId, casoId, nombre, lote, fecha_aplicacion, proxima_dosis, veterinario_id:veterinarioId } = req.body;
+    const { mascota_id:mascotaId, caso_id: casoId, nombre, lote, fecha_aplicacion, proxima_dosis, veterinario_id:veterinarioId } = req.body;
     const id = genUuid();
     req.entityId = id; // Para auditoría
     const vetId = veterinarioId || req.user.veterinario_id;
@@ -58,6 +58,48 @@ async function crear(req, res) {
       [id, mascotaId, casoId || null, nombre, lote, fecha_aplicacion, proxima_dosis || null, vetId]
     );
     return res.status(201).json({ data: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
+  }
+}
+
+/**
+ * PUT /api/vacunas/:id
+ * Actualizar vacuna
+ */
+async function actualizar(req, res) {
+  try {
+    const fields = [];
+    const values = [];
+    const mapping = {
+      mascota_id: 'mascota_id',
+      caso_id: 'caso_id',
+      nombre: 'nombre',
+      lote: 'lote',
+      fecha_aplicacion: 'fecha_aplicacion',
+      proxima_dosis: 'proxima_dosis',
+      veterinario_id: 'veterinario_id',
+    };
+
+    for (const [bodyField, dbField] of Object.entries(mapping)) {
+      if (req.body[bodyField] !== undefined) {
+        values.push(req.body[bodyField] || (bodyField === 'caso_id' || bodyField === 'proxima_dosis' ? null : req.body[bodyField]));
+        fields.push(`${dbField} = $${values.length}`);
+      }
+    }
+    if (fields.length === 0) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'No hay campos para actualizar' } });
+    }
+
+    values.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE vacunas SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Vacuna no encontrada' } });
+    }
+    return res.json({ data: result.rows[0] });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -76,4 +118,4 @@ async function eliminar(req, res) {
   }
 }
 
-module.exports = { listar, crear, eliminar };
+module.exports = { listar, crear, actualizar, eliminar };

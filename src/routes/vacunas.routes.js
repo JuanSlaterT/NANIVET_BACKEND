@@ -7,6 +7,7 @@ const { auditMiddleware } = require('../middleware/audit.middleware');
 
 router.get('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), vacunasController.listar);
 router.post('/', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Vacuna', 'crear'), vacunasController.crear);
+router.put('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Vacuna', 'editar'), vacunasController.actualizar);
 router.delete('/:id', authMiddleware, rolesMiddleware(['admin', 'veterinario']), auditMiddleware('Vacuna', 'eliminar'), vacunasController.eliminar);
 
 module.exports = router;

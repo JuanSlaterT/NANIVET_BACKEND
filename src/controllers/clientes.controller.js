@@ -9,7 +9,9 @@ const { genUuid } = require('../utils/genUuid');
  */
 async function listar(req, res) {
   try {
-    const { q, pagina = 1, limit = 20 } = req.query;
+    const { q } = req.query;
+    const pagina = Math.max(parseInt(req.query.pagina || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
     const offset = (pagina - 1) * limit;
 
     let query = `
@@ -30,7 +32,17 @@ async function listar(req, res) {
     params.push(limit, offset);
 
     const result = await pool.query(query, params);
-    return res.json({ data: result.rows, meta: { pagina: parseInt(pagina), limit: parseInt(limit), total: result.rows.length } });
+    const countParams = q ? [`%${q}%`] : [];
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM clientes c${q
+        ? ' WHERE (c.nombre ILIKE $1 OR c.apellido ILIKE $1 OR c.cedula ILIKE $1 OR c.telefono ILIKE $1)'
+        : ''}`,
+      countParams
+    );
+    return res.json({
+      data: result.rows,
+      meta: { pagina, limit, total: parseInt(countResult.rows[0].total, 10) },
+    });
   } catch (err) {
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Error interno del servidor' } });
   }
@@ -141,9 +153,22 @@ async function actualizar(req, res) {
     const result = await pool.query(
       `UPDATE clientes SET nombre = COALESCE($1, nombre), apellido = COALESCE($2, apellido),
        telefono = COALESCE($3, telefono), cedula = CASE WHEN $4::boolean THEN $5 ELSE cedula END,
-       email = COALESCE($6, email), direccion = COALESCE($7, direccion), fecha_actualizacion = NOW()
-       WHERE id = $8 RETURNING *`,
-      [nombre, apellido, telefono, cedula !== undefined, cedulaNormalizada ?? null, email, direccion, req.params.id]
+       email = CASE WHEN $6::boolean THEN $7 ELSE email END,
+       direccion = CASE WHEN $8::boolean THEN $9 ELSE direccion END,
+       fecha_actualizacion = NOW()
+       WHERE id = $10 RETURNING *`,
+      [
+        nombre,
+        apellido,
+        telefono,
+        cedula !== undefined,
+        cedulaNormalizada ?? null,
+        email !== undefined,
+        email ?? null,
+        direccion !== undefined,
+        direccion ?? null,
+        req.params.id,
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } });

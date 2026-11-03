@@ -265,7 +265,10 @@ async function updateStaff(req, res) {
 
     // Validar especialidad para veterinarios
     const finalRol = rol || oldUser.rol;
-    if (finalRol === 'veterinario' && !especialidad && oldUser.especialidad) {
+    const finalEspecialidad = finalRol === 'veterinario'
+      ? (especialidad !== undefined ? especialidad : oldUser.especialidad)
+      : null;
+    if (finalRol === 'veterinario' && !finalEspecialidad) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'La especialidad es requerida para veterinarios' }
       });
@@ -274,6 +277,11 @@ async function updateStaff(req, res) {
     // Hashear nueva contraseña si se proporciona
     let passwordHash = oldUser.password_hash;
     if (password) {
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'La contraseña debe tener al menos 8 caracteres' }
+        });
+      }
       passwordHash = await bcrypt.hash(password, 12);
     }
 
@@ -290,7 +298,7 @@ async function updateStaff(req, res) {
            fecha_alta = COALESCE($8, fecha_alta)
        WHERE id = $9
        RETURNING id, nombre, email, rol, telefono, especialidad, activo, fecha_alta`,
-      [nombre, email, passwordHash, rol, telefono, especialidad || null, activo, fechaAlta || null, id]
+      [nombre, email, passwordHash, rol, telefono, finalEspecialidad, activo, fechaAlta || null, id]
     );
 
     const updatedUser = result.rows[0];
@@ -310,12 +318,23 @@ async function updateStaff(req, res) {
                telefono = COALESCE($3, telefono),
                activo = COALESCE($4, activo)
            WHERE id = $5`,
-          [nombre || null, especialidad || null, telefono || null, activo !== undefined ? activo : oldUser.activo, vetId]
+          [nombre || null, finalEspecialidad, telefono || null, activo !== undefined ? activo : oldUser.activo, vetId]
         );
         // Obtener veterinario actualizado
         const vetUpdated = await pool.query('SELECT * FROM veterinarios WHERE id = $1', [vetId]);
         veterinarioSincronizado = vetUpdated.rows[0];
+      } else {
+        const vetResult = await pool.query(
+          `INSERT INTO veterinarios
+           (id, user_id, nombre, especialidad, telefono, horario_inicio, horario_fin, dias_semana, intervalo_minutos, activo)
+           VALUES ($1, $2, $3, $4, $5, '08:00', '17:00', '{1,2,3,4,5,6}', 30, $6)
+           RETURNING *`,
+          [genUuid(), id, nombre || oldUser.nombre, finalEspecialidad, telefono || oldUser.telefono, activo !== undefined ? activo : oldUser.activo]
+        );
+        veterinarioSincronizado = vetResult.rows[0];
       }
+    } else if (oldUser.rol === 'veterinario') {
+      await pool.query('UPDATE veterinarios SET activo = false WHERE user_id = $1', [id]);
     }
 
     // Calcular diff para auditoría

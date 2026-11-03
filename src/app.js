@@ -46,7 +46,6 @@ app.use('/api/examenes', require('./routes/examenes.routes'));
 app.use('/api/media', require('./routes/media.routes'));
 app.use('/api/hospitalizaciones', require('./routes/hospitalizaciones.routes'));
 app.use('/api/medicaciones', require('./routes/medicaciones.routes'));
-app.use('/api/evoluciones', require('./routes/evoluciones.routes'));
 app.use('/api/auditoria', require('./routes/auditoria.routes'));
 app.use('/api/campanas', require('./routes/campanas.routes'));
 app.use('/api/plantillas', require('./routes/plantillas.routes'));

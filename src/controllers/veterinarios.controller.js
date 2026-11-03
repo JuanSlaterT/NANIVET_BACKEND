@@ -62,9 +62,9 @@ async function obtener(req, res) {
 async function obtenerBloqueos(req, res) {
   try {
     const result = await pool.query(
-      `SELECT hb.*, u.nombre AS veterinario_nombre 
+      `SELECT hb.*, v.nombre AS veterinario_nombre 
        FROM horarios_bloqueados hb 
-       LEFT JOIN usuarios u ON hb.veterinario_id = u.id 
+       LEFT JOIN veterinarios v ON hb.veterinario_id = v.id 
        WHERE hb.veterinario_id = $1 
        ORDER BY hb.fecha`,
       [req.params.id]
